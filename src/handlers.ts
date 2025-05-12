@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { GoslingManager, ActivityStatus, CircuitBreakerConfig } from './gosling-manager.js';
 import { formatDate, formatDuration, formatFileSize } from './utils.js';
+import { PROMPTS } from './prompts.js';
 
 /**
  * Handler for listing available resources
@@ -110,32 +111,20 @@ export async function handleReadResource(
   const promptMatch = uri.match(/^prompts:\/\/([^/]+)$/);
   if (promptMatch) {
     const promptName = promptMatch[1];
-    let promptPath;
 
-    // Map prompt name to file path
-    switch (promptName) {
-      case "executive-agent":
-        promptPath = "prompts/executive-agent.md";
-        break;
-      default:
-        throw new McpError(ErrorCode.InvalidRequest, `Prompt template not found: ${promptName}`);
+    // Get prompt content from our prompts module
+    const promptContent = PROMPTS[promptName];
+    if (!promptContent) {
+      throw new McpError(ErrorCode.InvalidRequest, `Prompt template not found: ${promptName}`);
     }
 
-    try {
-      // Read the prompt file
-      const fs = await import('fs/promises');
-      const content = await fs.readFile(promptPath, 'utf8');
-
-      return {
-        contents: [{
-          uri,
-          mimeType: "text/markdown",
-          text: content
-        }]
-      };
-    } catch (error) {
-      throw new McpError(ErrorCode.InternalError, `Failed to read prompt template: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    return {
+      contents: [{
+        uri,
+        mimeType: "text/markdown",
+        text: promptContent
+      }]
+    };
   }
 
   // Handle goslings://{process_id} resource
