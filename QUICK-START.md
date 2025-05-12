@@ -91,9 +91,9 @@ Once configured, try these examples with your AI agent:
    Use the get_gosling_output tool to check the results from process [ID].
    ```
 
-4. **Stop a process:**
+4. **Release a process when done:**
    ```
-   Use the terminate_gosling tool to stop process [ID].
+   Use the release_gosling tool to release process [ID].
    ```
 
 ## Troubleshooting

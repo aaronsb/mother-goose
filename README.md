@@ -160,16 +160,16 @@ Gets the current output from a specific gosling process.
 Use the get_gosling_output tool to check the results from process 123e4567-e89b-12d3-a456-426614174000.
 ```
 
-### 4. `terminate_gosling`
+### 4. `release_gosling`
 
-Terminates a specific gosling process.
+Releases a specific gosling process when you're done with it.
 
 **Parameters:**
-- `process_id`: ID of the gosling process to terminate
+- `process_id`: ID of the gosling process to release
 
 **Example:**
 ```
-Use the terminate_gosling tool to stop process 123e4567-e89b-12d3-a456-426614174000.
+Use the release_gosling tool to release process 123e4567-e89b-12d3-a456-426614174000.
 ```
 
 ## MCP Resources
@@ -201,9 +201,9 @@ After configuring Mother Goose with your MCP client, you can:
    Use the get_gosling_output tool to check the results from process [ID].
    ```
 
-4. **Terminate a process when finished:**
+4. **Release a process when finished:**
    ```
-   Use the terminate_gosling tool to stop process [ID].
+   Use the release_gosling tool to release process [ID].
    ```
 
 ### Advanced Recursive Usage

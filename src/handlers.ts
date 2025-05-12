@@ -228,14 +228,14 @@ export async function handleListTools(): Promise<any> {
         }
       },
       {
-        name: "terminate_gosling",
-        description: "Terminate a specific gosling process",
+        name: "release_gosling",
+        description: "Release a specific gosling process when you're done with it",
         inputSchema: {
           type: "object",
           properties: {
             process_id: {
               type: "string",
-              description: "ID of the gosling process to terminate"
+              description: "ID of the gosling process to release"
             }
           },
           required: ["process_id"]
@@ -358,8 +358,8 @@ This child Goose process is working on your request in parallel.`
         throw new McpError(ErrorCode.InvalidRequest, `Gosling process ${processId} not found`);
       }
       
-      let output = gosling.output || "No output yet.";
-      
+      const output = gosling.output || "No output yet.";
+
       // Create a header with gosling information
       const header = `=== Gosling Process ${processId} ===
 Status: ${gosling.status}
@@ -383,7 +383,7 @@ Prompt: "${gosling.prompt}"
       };
     }
     
-    case "terminate_gosling": {
+    case "release_gosling": {
       const processId = String(request.params.arguments?.process_id || "");
       
       if (!processId) {
@@ -401,14 +401,14 @@ Prompt: "${gosling.prompt}"
       
       const success = goslingManager.terminateGosling(processId);
       if (!success) {
-        throw new McpError(ErrorCode.InvalidRequest, `Failed to terminate gosling process ${processId}`);
+        throw new McpError(ErrorCode.InvalidRequest, `Failed to release gosling process ${processId}`);
       }
       
       return {
         content: [{
           type: "text",
-          text: `Successfully ${wasRunning ? 'terminated' : 'cleaned up'} gosling process ${processId}
-${wasRunning ? `The process was running for ${runtime} before termination.` : `The process had already completed with status: ${gosling.status}`}
+          text: `Successfully ${wasRunning ? 'released' : 'released'} gosling process ${processId}
+${wasRunning ? `The gosling was active for ${runtime} before being released.` : `The gosling had already completed with status: ${gosling.status}`}
 
 You can still access its output using get_gosling_output or the resource URI: goslings://${processId}/output`
         }]
