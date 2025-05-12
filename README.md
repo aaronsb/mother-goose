@@ -97,9 +97,11 @@ Releases a specific gosling process when you're done with it.
 Use the release_gosling tool to release process [ID].
 ```
 
-## Usage Example
+## Usage Examples
 
 After configuring Mother Goose with your MCP client, you can create recursive AI workflows:
+
+### Basic Recursive Workflow
 
 ```
 I need to solve a complex machine learning problem. Use the run_goose tool to create three specialist goslings:
@@ -109,6 +111,21 @@ I need to solve a complex machine learning problem. Use the run_goose tool to cr
 
 Then, I'll coordinate their efforts to produce a comprehensive solution.
 ```
+
+### Advanced: Shared Memory Coordination
+
+When combined with [Memory Graph](https://github.com/aaronsb/memory-graph), all goslings can share knowledge through structured memory domains:
+
+```
+# Create specialized goslings that share a common memory structure
+Use the run_goose tool to create a research gosling that stores findings in the shared memory.
+Use the run_goose tool to create an implementation gosling that builds upon those findings.
+Use the run_goose tool to create a testing gosling that validates the implementation.
+
+# Each gosling can read, write, and follow connections in the shared memory
+```
+
+See [Advanced Usage](./docs/usage/advanced-usage.md#shared-memory-with-memory-graph) for more details.
 
 ## Development
 

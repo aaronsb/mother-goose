@@ -99,8 +99,73 @@ To get the best performance:
 3. Avoid spawning too many concurrent goslings
 4. Use meaningful prompts to make identification easier
 
+## Shared Memory with Memory Graph
+
+One of the most powerful advanced usage patterns is combining Mother Goose with a shared memory endpoint like [Memory Graph](https://github.com/aaronsb/memory-graph), which enables sophisticated collaboration between goslings.
+
+### Shared Memory Architecture
+
+When Goose is configured with a shared memory endpoint, all goslings (including the parent agent and child goslings) have access to the same memory domains and can:
+
+1. Read from shared memory
+2. Write to shared memory
+3. Follow connections between memories
+4. Traverse memory domains
+
+This creates a powerful collaborative environment where knowledge can be shared and accumulated across all agents.
+
+### Directed Graph Memory Workflows
+
+Using Memory Graph's domain-based organization, you can create sophisticated workflows:
+
+```
+Use the run_goose tool to create a research gosling that writes its findings to the "research" memory domain.
+
+Use the run_goose tool to create an analysis gosling that reads from the "research" domain and writes its analysis to the "analysis" domain.
+
+Use the run_goose tool to create a coding gosling that implements solutions based on the "analysis" domain and stores code samples in the "implementation" domain.
+```
+
+### Ontological Coordination
+
+The supervisor agent (running Mother Goose) can coordinate the work by:
+
+1. Setting up the memory structure and domains
+2. Assigning specific tasks to each gosling
+3. Monitoring memory changes
+4. Synthesizing results from across domains
+
+Each gosling can:
+
+1. Follow semantic connections between memories
+2. Add new relationships between concepts
+3. Store partial results that other goslings can access
+4. Create new memory domains when exploring new areas
+
+### Example Workflow
+
+```
+# Step 1: Set up memory domains
+Create memory domains for "requirements", "design", "implementation", and "testing"
+
+# Step 2: Store initial requirements
+Store key requirements in the "requirements" domain
+
+# Step 3: Spawn design gosling
+Use the run_goose tool to create a design gosling that reads requirements and creates design documents in the "design" domain
+
+# Step 4: Spawn implementation goslings in parallel
+Use the run_goose tool to create multiple implementation goslings that each work on different components based on the design domain
+
+# Step 5: Spawn testing gosling
+Use the run_goose tool to create a testing gosling that verifies the implementation against requirements
+```
+
+This approach allows for complex, coordinated workflows where each gosling has a specialized role but can share knowledge and build upon the work of others.
+
 ## Next Steps
 
 - [Troubleshooting](./troubleshooting.md)
 - [MCP Tools Reference](../reference/tools.md)
 - [MCP Resources Reference](../reference/resources.md)
+- [Memory Graph Repository](https://github.com/aaronsb/memory-graph)
