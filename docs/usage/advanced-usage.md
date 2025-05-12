@@ -69,16 +69,48 @@ Access the resource at goslings://123e4567-e89b-12d3-a456-426614174000/output
 For complex queries that might take some time:
 
 1. Start the process and note the ID
-2. Periodically check its status with `get_gosling_output`
+2. Periodically check its status with `get_gosling_status`
 3. Continue with other work while waiting
-4. When complete, integrate the results
+4. When the status shows IDLE, retrieve the complete output
+5. Integrate the results
 
 Example:
 ```
+# Start a complex analysis
 Use the run_goose tool to analyze this large dataset...
 
-[Later]
-Use the get_gosling_output tool to check if process XYZ has completed its analysis.
+# Later, check if it's done without retrieving the entire output
+Use the get_gosling_status tool to check if process XYZ is idle yet.
+
+# Once it shows IDLE status, retrieve the complete output
+Use the get_gosling_output tool with process_id="XYZ" to see the analysis results.
+```
+
+### Activity Sensing
+
+Mother Goose includes an activity sensing system that detects when goslings are actively generating output versus when they're idle and ready for interaction:
+
+1. **Working Status**: A gosling is considered to be in WORKING status when it's actively generating output.
+2. **Idle Status**: A gosling is considered IDLE after it has generated no new output for a threshold period (default: 2000ms).
+3. **Hysteresis**: A time buffer prevents false idle detections due to temporary pauses in output generation.
+
+This helps prevent context overwhelm by allowing you to monitor multiple goslings efficiently without needing to fetch their complete outputs until they're ready for interaction.
+
+Example of using activity sensing to manage multiple goslings:
+
+```
+# Start multiple goslings for different aspects of a task
+Use the run_goose tool to create three specialist goslings for different parts of a complex project.
+
+# Monitor activity status with minimal context consumption
+Use the get_gosling_status tool to get a compact activity report.
+
+# For any gosling marked as IDLE:
+Use the get_gosling_output tool to retrieve its complete output.
+Use the send_prompt_to_gosling tool to continue the conversation if needed.
+
+# For goslings still marked as WORKING:
+Wait until a later status check shows them as IDLE.
 ```
 
 ## Interactive Conversations with Goslings
@@ -139,10 +171,14 @@ Sometimes goslings may encounter errors. You can:
 
 To get the best performance:
 
-1. Be specific with your prompts to goslings
-2. Release goslings when you're done with them
-3. Avoid spawning too many concurrent goslings
-4. Use meaningful prompts to make identification easier
+1. **Use Activity Sensing**: Use `get_gosling_status` to monitor goslings efficiently instead of repeatedly fetching complete outputs.
+2. **Wait for Idle State**: Only retrieve complete outputs or send follow-up prompts when a gosling is in the IDLE state.
+3. **Adjust Idle Threshold**: Customize the `idle_threshold_ms` parameter based on your specific needs (higher for more confirmation, lower for faster response).
+4. **Be Specific with Prompts**: Provide clear, specific prompts to goslings for better results.
+5. **Release When Done**: Always use `release_gosling` when you're done with a process to free up system resources.
+6. **Limit Concurrent Processes**: Avoid spawning too many concurrent goslings to prevent resource contention.
+7. **Use Meaningful Prompts**: Include descriptive task information to make identification easier in status reports.
+8. **Paginate Large Outputs**: For large outputs, use pagination to view only the sections you need rather than the full content.
 
 ## Shared Memory with Memory Graph
 

@@ -105,7 +105,7 @@ export function formatDate(date: Date): string {
 export function formatDuration(start: Date, end: Date = new Date()): string {
   const durationMs = end.getTime() - start.getTime();
   const seconds = Math.floor(durationMs / 1000);
-  
+
   if (seconds < 60) {
     return `${seconds}s`;
   } else if (seconds < 3600) {
@@ -116,5 +116,22 @@ export function formatDuration(start: Date, end: Date = new Date()): string {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
+  }
+}
+
+/**
+ * Format file size in bytes to human-readable format
+ * @param bytes Size in bytes
+ * @returns Formatted string (e.g., "4.5 KB")
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) {
+    return bytes + " bytes";
+  } else if (bytes < 1024 * 1024) {
+    return (bytes / 1024).toFixed(1) + " KB";
+  } else if (bytes < 1024 * 1024 * 1024) {
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  } else {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " GB";
   }
 }

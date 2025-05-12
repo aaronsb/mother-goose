@@ -96,7 +96,20 @@ Use the get_gosling_output tool with offset=100 and limit=50 to view lines 100-1
 Use the get_gosling_output tool with full_output=true to get the complete output.
 ```
 
-### 4. `send_prompt_to_gosling`
+### 4. `get_gosling_status`
+
+Gets a compact activity report of goslings with their current working status (working/idle), helping prevent context overwhelm when managing multiple processes.
+
+**Example:**
+```
+# Get status of all goslings
+Use the get_gosling_status tool to see which goslings are ready for interaction.
+
+# Get status of a specific gosling
+Use the get_gosling_status tool with process_id="[ID]" to check if it's idle yet.
+```
+
+### 5. `send_prompt_to_gosling`
 
 Sends a follow-up prompt to a running gosling process in interactive mode, enabling multi-turn conversations. Goslings are automatically started in interactive mode, so they stay alive and can receive multiple prompts.
 
@@ -105,7 +118,7 @@ Sends a follow-up prompt to a running gosling process in interactive mode, enabl
 Use the send_prompt_to_gosling tool to ask the gosling at process [ID] to elaborate on its findings.
 ```
 
-### 5. `release_gosling`
+### 6. `release_gosling`
 
 Releases a specific gosling process when you're done with it.
 
@@ -148,6 +161,28 @@ Use the get_gosling_output tool to see how the gosling incorporated your feedbac
 
 # Continue the conversation
 Use the send_prompt_to_gosling tool again: "Now please add a budget section with estimated costs."
+```
+
+### Efficient Management of Multiple Goslings
+
+Use the activity sensor to manage multiple goslings efficiently without overwhelming your context:
+
+```
+# Start multiple goslings for different tasks
+Use the run_goose tool to create three specialist goslings for different parts of a complex project.
+
+# Check which goslings are ready for interaction
+Use the get_gosling_status tool to see a compact report of all goslings.
+
+# Only interact with idle goslings
+For each gosling marked as 'idle' in the status report:
+1. Review their output using get_gosling_output
+2. Send follow-up prompts as needed using send_prompt_to_gosling
+
+# Check activity status again
+Use the get_gosling_status tool again to see which goslings have finished processing.
+
+# This prevents context overflow by only retrieving complete outputs when necessary
 ```
 
 ### Advanced: Shared Memory Coordination

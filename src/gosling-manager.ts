@@ -14,6 +14,14 @@ export interface PromptEntry {
 }
 
 /**
+ * Enum for gosling activity status
+ */
+export enum ActivityStatus {
+  WORKING = "WORKING",
+  IDLE = "IDLE"
+}
+
+/**
  * Interface for a Gosling process
  */
 export interface Gosling {
@@ -29,6 +37,8 @@ export interface Gosling {
   promptHistory: PromptEntry[];
   outputLineCount: number;
   sessionName: string;  // Name of the Goose session
+  lastOutputTime: Date; // Timestamp of last output update
+  outputSize: number;   // Size of the output in bytes
 }
 
 /**
@@ -98,7 +108,9 @@ export class GoslingManager {
       startTime: timestamp,
       promptHistory: [{ prompt, timestamp }],  // Original prompt in history
       outputLineCount: 0,
-      sessionName
+      sessionName,
+      lastOutputTime: timestamp,
+      outputSize: 0
     };
     
     // Store the Gosling
@@ -108,6 +120,10 @@ export class GoslingManager {
     gooseProcess.stdout.on("data", (data) => {
       const text = data.toString();
       gosling.output += text;
+
+      // Update activity tracking
+      gosling.lastOutputTime = new Date();
+      gosling.outputSize += text.length;
 
       // Count new lines
       const newLines = text.split('\n').length - 1;
@@ -196,6 +212,11 @@ export class GoslingManager {
         newProcess.stdout.on("data", (data) => {
           const text = data.toString();
           gosling.output += text;
+
+          // Update activity tracking
+          gosling.lastOutputTime = new Date();
+          gosling.outputSize += text.length;
+
           // Count new lines
           const newLines = text.split('\n').length - 1;
           gosling.outputLineCount += newLines;
@@ -305,6 +326,176 @@ export class GoslingManager {
         startLine: offset,
         endLine: endIndex,
         hasMore: endIndex < lines.length
+      }
+    };
+  }
+
+  /**
+   * Get activity status of a gosling
+   *
+   * @param id The ID of the gosling process
+   * @param idleThresholdMs Time in milliseconds with no output to consider a gosling idle (default: 2000ms)
+   * @returns Activity status information or undefined if gosling not found
+   */
+  getGoslingActivityStatus(id: string, idleThresholdMs: number = 2000): {
+    status: ActivityStatus;
+    idleTimeMs?: number;
+  } | undefined {
+    const gosling = this.goslings.get(id);
+    if (!gosling) {
+      return undefined;
+    }
+
+    // If the gosling is not running, it's considered idle
+    if (gosling.status !== "running") {
+      return { status: ActivityStatus.IDLE };
+    }
+
+    // Check if there has been any output recently
+    const now = new Date();
+    const timeSinceLastOutput = now.getTime() - gosling.lastOutputTime.getTime();
+
+    // If we've received output within the threshold, the gosling is considered working
+    if (timeSinceLastOutput < idleThresholdMs) {
+      return { status: ActivityStatus.WORKING };
+    }
+
+    // Otherwise, it's considered idle with an idle time
+    return {
+      status: ActivityStatus.IDLE,
+      idleTimeMs: timeSinceLastOutput
+    };
+  }
+
+  /**
+   * Get status reports for all goslings or a specific gosling
+   *
+   * @param specificId Optional ID of a specific gosling to check
+   * @param idleThresholdMs Time in milliseconds with no output to consider a gosling idle (default: 2000ms)
+   * @returns Status report for all goslings or the specific gosling
+   */
+  getGoslingStatus(specificId?: string, idleThresholdMs: number = 2000): {
+    allGoslings?: {
+      total: number;
+      working: number;
+      idle: number;
+      completed: number;
+      error: number;
+      goslings: Array<{
+        id: string;
+        activity: ActivityStatus;
+        status: string;
+        idleTimeMs?: number;
+        prompt: string;
+        lastPrompt?: string;
+        outputSize: number;
+        outputLines: number;
+      }>;
+    };
+    specificGosling?: {
+      id: string;
+      activity: ActivityStatus;
+      status: string;
+      idleTimeMs?: number;
+      prompt: string;
+      lastPrompt?: string;
+      promptCount: number;
+      outputSize: number;
+      outputLines: number;
+      runtime: string;
+      sessionName: string;
+    };
+  } {
+    // If a specific gosling ID is provided, just return information about that gosling
+    if (specificId) {
+      const gosling = this.goslings.get(specificId);
+      if (!gosling) {
+        return {
+          specificGosling: {
+            id: specificId,
+            activity: ActivityStatus.IDLE,
+            status: "not_found",
+            prompt: "",
+            promptCount: 0,
+            outputSize: 0,
+            outputLines: 0,
+            runtime: "0s",
+            sessionName: ""
+          }
+        };
+      }
+
+      const activityStatus = this.getGoslingActivityStatus(specificId, idleThresholdMs);
+      const lastPrompt = gosling.promptHistory.length > 1
+        ? gosling.promptHistory[gosling.promptHistory.length - 1].prompt
+        : undefined;
+
+      return {
+        specificGosling: {
+          id: gosling.id,
+          activity: activityStatus?.status || ActivityStatus.IDLE,
+          status: gosling.status,
+          idleTimeMs: activityStatus?.idleTimeMs,
+          prompt: gosling.prompt,
+          lastPrompt,
+          promptCount: gosling.promptHistory.length,
+          outputSize: gosling.outputSize,
+          outputLines: gosling.outputLineCount,
+          runtime: formatDuration(gosling.startTime, gosling.endTime || new Date()),
+          sessionName: gosling.sessionName
+        }
+      };
+    }
+
+    // Otherwise, return a summary of all goslings
+    const goslings = this.getAllGoslings();
+
+    // Count goslings by status
+    let workingCount = 0;
+    let idleCount = 0;
+    let completedCount = 0;
+    let errorCount = 0;
+
+    // Build the status report for each gosling
+    const statusReports = goslings.map(gosling => {
+      const activityStatus = this.getGoslingActivityStatus(gosling.id, idleThresholdMs);
+
+      // Count by status
+      if (gosling.status === "completed") {
+        completedCount++;
+      } else if (gosling.status === "error") {
+        errorCount++;
+      } else if (activityStatus?.status === ActivityStatus.WORKING) {
+        workingCount++;
+      } else {
+        idleCount++;
+      }
+
+      // Get the last prompt if there's more than one
+      const lastPrompt = gosling.promptHistory.length > 1
+        ? gosling.promptHistory[gosling.promptHistory.length - 1].prompt
+        : undefined;
+
+      return {
+        id: gosling.id,
+        activity: activityStatus?.status || ActivityStatus.IDLE,
+        status: gosling.status,
+        idleTimeMs: activityStatus?.idleTimeMs,
+        prompt: gosling.prompt,
+        lastPrompt,
+        outputSize: gosling.outputSize,
+        outputLines: gosling.outputLineCount
+      };
+    });
+
+    return {
+      allGoslings: {
+        total: goslings.length,
+        working: workingCount,
+        idle: idleCount,
+        completed: completedCount,
+        error: errorCount,
+        goslings: statusReports
       }
     };
   }

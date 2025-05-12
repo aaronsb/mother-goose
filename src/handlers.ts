@@ -6,8 +6,8 @@ import {
   ErrorCode,
   ReadResourceRequest
 } from "@modelcontextprotocol/sdk/types.js";
-import { GoslingManager } from './gosling-manager.js';
-import { formatDate, formatDuration } from './utils.js';
+import { GoslingManager, ActivityStatus } from './gosling-manager.js';
+import { formatDate, formatDuration, formatFileSize } from './utils.js';
 
 /**
  * Handler for listing available resources
@@ -248,6 +248,23 @@ export async function handleListTools(): Promise<any> {
             }
           },
           required: ["process_id"]
+        }
+      },
+      {
+        name: "get_gosling_status",
+        description: "Get a compact activity status report of goslings with their working/idle state",
+        inputSchema: {
+          type: "object",
+          properties: {
+            process_id: {
+              type: "string",
+              description: "ID of a specific gosling process to check. If not provided, returns status for all goslings."
+            },
+            idle_threshold_ms: {
+              type: "number",
+              description: "Time in milliseconds with no output to consider a gosling idle. Defaults to 2000ms."
+            }
+          }
         }
       },
       {
@@ -505,6 +522,111 @@ This allows for interactive, multi-turn conversations with your gosling process.
       };
     }
 
+    case "get_gosling_status": {
+      const processId = request.params.arguments?.process_id;
+      const idleThresholdMs = typeof request.params.arguments?.idle_threshold_ms === 'number'
+        ? request.params.arguments.idle_threshold_ms
+        : 2000;
+
+      // Get the status report
+      const statusReport = goslingManager.getGoslingStatus(processId, idleThresholdMs);
+
+      // Format the response based on whether it's for a specific gosling or all goslings
+      if (statusReport.specificGosling) {
+        const g = statusReport.specificGosling;
+
+        // Format idle time if available
+        let idleTimeStr = "";
+        if (g.idleTimeMs !== undefined) {
+          const idleSeconds = Math.floor(g.idleTimeMs / 1000);
+          const idleMs = g.idleTimeMs % 1000;
+          idleTimeStr = `(No output for ${idleSeconds}.${idleMs.toString().padStart(3, '0').substring(0, 1)}s)`;
+        }
+
+        // Check if gosling exists
+        if (g.status === "not_found") {
+          return {
+            content: [{
+              type: "text",
+              text: `=== Gosling Status ===\n\nError: Gosling with ID ${g.id} not found.\n\nUse list_goslings to see all available goslings.`
+            }]
+          };
+        }
+
+        // Format a specific gosling's status report
+        const response = `=== Gosling Status ===\n\nID: ${g.id}
+Status: ${g.activity} ${idleTimeStr}
+Process state: ${g.status}
+Task: "${g.prompt}"
+${g.lastPrompt ? `Last prompt: "${g.lastPrompt}"` : ""}
+Prompt count: ${g.promptCount}
+Output size: ${formatFileSize(g.outputSize)} (${g.outputLines} lines)
+Runtime: ${g.runtime}
+
+${g.activity === "IDLE" ? "This gosling is idle and ready for interaction." : "This gosling is actively working. Wait for it to become idle for best results."}
+${g.status === "running"
+  ? "Use get_gosling_output to view its current response or send_prompt_to_gosling to continue the conversation."
+  : `This gosling's process is in ${g.status} state. You can still view its output with get_gosling_output.`}`;
+
+        return {
+          content: [{
+            type: "text",
+            text: response
+          }]
+        };
+      } else if (statusReport.allGoslings) {
+        // Format the status report for all goslings
+        const g = statusReport.allGoslings;
+
+        let response = `=== Gosling Status Report ===\n\nTotal: ${g.total} goslings (${g.working} working, ${g.idle} idle, ${g.completed} completed, ${g.error} error)\n\n`;
+
+        if (g.goslings.length === 0) {
+          response += "No goslings found. Use run_goose to create a new gosling process.";
+        } else {
+          g.goslings.forEach((gosling, i) => {
+            // Format idle time if available
+            let idleTimeStr = "";
+            if (gosling.activity === "IDLE" && gosling.idleTimeMs !== undefined) {
+              const idleSeconds = Math.floor(gosling.idleTimeMs / 1000);
+              const idleMs = gosling.idleTimeMs % 1000;
+              idleTimeStr = `(No output for ${idleSeconds}.${idleMs.toString().padStart(3, '0').substring(0, 1)}s)`;
+            }
+
+            response += `${i+1}. ID: ${gosling.id}\n`;
+            response += `   Status: ${gosling.activity} ${idleTimeStr}\n`;
+            response += `   Process state: ${gosling.status}\n`;
+            response += `   Task: "${gosling.prompt}"\n`;
+            if (gosling.lastPrompt) {
+              response += `   Last prompt: "${gosling.lastPrompt}"\n`;
+            }
+            response += `   Output size: ${formatFileSize(gosling.outputSize)} (${gosling.outputLines} lines)\n`;
+
+            if (i < g.goslings.length - 1) response += "\n";
+          });
+
+          // Add helpful instructions
+          response += "\n\nUse get_gosling_output with process_id=\"ID\" to view complete output of idle goslings.";
+          response += "\nUse send_prompt_to_gosling with process_id=\"ID\" to continue conversations with idle goslings.";
+          response += "\nWait for goslings to become IDLE before retrieving their output for best results.";
+        }
+
+        return {
+          content: [{
+            type: "text",
+            text: response
+          }]
+        };
+      } else {
+        // This shouldn't happen based on the implementation, but just in case
+        return {
+          content: [{
+            type: "text",
+            text: "No status information available."
+          }]
+        };
+      }
+    }
+
     case "release_gosling": {
       const processId = String(request.params.arguments?.process_id || "");
 
@@ -536,7 +658,7 @@ You can still access its output using get_gosling_output or the resource URI: go
         }]
       };
     }
-    
+
     default:
       throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
   }
