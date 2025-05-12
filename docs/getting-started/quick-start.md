@@ -1,4 +1,4 @@
-# Mother Goose: Quick Start Guide
+# Quick Start Guide
 
 This guide helps you quickly set up and start using Mother Goose, an MCP server that enables AI agents to recursively spawn and interact with Goose CLI.
 
@@ -12,6 +12,8 @@ Before you begin, make sure you have:
    - If not installed, visit: [https://block.xyz/docs/goose](https://block.xyz/docs/goose)
 
 ## Install & Run
+
+Choose one of these methods to get started:
 
 ### Method 1: Use with npx (Easiest)
 
@@ -103,8 +105,10 @@ If you encounter issues:
 1. Make sure Goose is installed and working: `goose run --text "Hello"`
 2. Check your MCP client configuration
 3. Run validation: `npx mother-goose validate`
-4. Check the README.md for more detailed information
+4. Check the [Troubleshooting Guide](../usage/troubleshooting.md) for more help
 
 ## Next Steps
 
-For advanced usage, configuration options, and more examples, see the full README.md file.
+- [Basic Usage](../usage/basic-usage.md)
+- [Advanced Usage](../usage/advanced-usage.md)
+- [MCP Tools Reference](../reference/tools.md)

@@ -14,7 +14,7 @@
   "files": [
     "build",
     "README.md",
-    "QUICK-START.md",
+    "docs",
     "bin",
     "scripts/validate-setup.js"
   ],
