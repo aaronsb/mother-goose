@@ -23,7 +23,6 @@ Creates a new Goose process with the specified prompt.
 
 **Parameters:**
 - `prompt` (string, required): The prompt to send to Goose
-- `options` (array of strings, optional): Optional parameters for Goose (e.g., [`"-t"`] for text-only mode)
 
 **Returns:**
 - Process ID and confirmation message
@@ -33,8 +32,7 @@ Creates a new Goose process with the specified prompt.
 {
   "name": "run_goose",
   "arguments": {
-    "prompt": "Explain quantum computing in simple terms",
-    "options": ["-t"]
+    "prompt": "Explain quantum computing in simple terms"
   }
 }
 ```

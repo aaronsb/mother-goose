@@ -198,13 +198,6 @@ export async function handleListTools(): Promise<any> {
             prompt: {
               type: "string",
               description: "The prompt to send to Goose"
-            },
-            options: {
-              type: "array",
-              items: {
-                type: "string"
-              },
-              description: "Optional parameters for Goose. IMPORTANT: Do NOT include '-t' or '--text' as these are automatically handled based on the prompt parameter."
             }
           },
           required: ["prompt"]
@@ -418,10 +411,9 @@ All runaway processes have been stopped.`
 
     case "run_goose": {
       const prompt = String(request.params.arguments?.prompt || "");
-      const options = Array.isArray(request.params.arguments?.options) 
-        ? request.params.arguments?.options.map(String)
-        : [];
-      
+      // Always use a default empty array for options - no longer exposed to callers
+      const options = [];
+
       if (!prompt) {
         throw new McpError(ErrorCode.InvalidParams, "Prompt is required");
       }
