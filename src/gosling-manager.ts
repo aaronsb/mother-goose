@@ -129,9 +129,9 @@ export class GoslingManager {
     // -n: Named session for later resumption
     const args = ["run", "-s", "-n", sessionName];
 
-    // Add any options (like -t for text-only mode), but filter out --text as we'll add that explicitly
+    // Add any options, but filter out all forms of text parameters as we'll add that explicitly
     const filteredOptions = (options && options.length > 0)
-      ? options.filter(opt => opt !== '--text')
+      ? options.filter(opt => opt !== '--text' && opt !== '-t')
       : [];
 
     if (filteredOptions.length > 0) {

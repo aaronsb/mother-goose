@@ -204,7 +204,7 @@ export async function handleListTools(): Promise<any> {
               items: {
                 type: "string"
               },
-              description: "Optional parameters for Goose (e.g., [\"-t\"] for text-only mode)"
+              description: "Optional parameters for Goose. IMPORTANT: Do NOT include '-t' or '--text' as these are automatically handled based on the prompt parameter."
             }
           },
           required: ["prompt"]
