@@ -30,8 +30,8 @@
     "postinstall": "node -e \"console.log('\\n\\n🔍 Run \\'npm run validate\\' to check if all prerequisites are installed.\\n\\n')\""
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "0.6.0",
-    "nanospinner": "^1.1.0"
+    "@modelcontextprotocol/sdk": "^1.11.1",
+    "nanospinner": "^1.2.2"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
