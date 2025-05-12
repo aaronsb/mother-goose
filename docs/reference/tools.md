@@ -4,13 +4,14 @@ This document provides detailed reference information for all MCP tools provided
 
 ## Overview
 
-Mother Goose provides five main tools that enable AI agents to interact with Goose CLI:
+Mother Goose provides six main tools that enable AI agents to interact with Goose CLI:
 
 1. `run_goose`: Create and start a new Goose process
 2. `list_goslings`: List all Goose processes
 3. `get_gosling_output`: Get output from a specific process with pagination support
-4. `send_prompt_to_gosling`: Send a follow-up prompt to a running gosling process
-5. `release_gosling`: Release a specific process
+4. `get_gosling_status`: Get a compact activity status report (working/idle) for goslings
+5. `send_prompt_to_gosling`: Send a follow-up prompt to a running gosling process
+6. `release_gosling`: Release a specific process
 
 ## Tool Details
 
@@ -117,6 +118,60 @@ Gets the current output from a specific gosling process with pagination support 
 }
 ```
 
+### `get_gosling_status`
+
+Gets a compact activity report of goslings with their working status (working/idle), helping to prevent context overwhelm when managing multiple processes.
+
+**Parameters:**
+- `process_id` (string, optional): ID of a specific gosling process to check. If not provided, returns status for all goslings.
+- `idle_threshold_ms` (number, optional): Time in milliseconds with no output to consider a gosling idle. Defaults to 2000ms.
+
+**Returns:**
+- A compact status report with working/idle indicators and minimal context overhead
+
+**Example Request:**
+```json
+{
+  "name": "get_gosling_status",
+  "arguments": {}
+}
+```
+
+**Example Response:**
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "=== Gosling Status Report ===\n\nTotal: 3 goslings (1 working, 2 idle)\n\n1. ID: 123e4567-e89b-12d3-a456-426614174000\n   Status: IDLE (No output for 5.2s)\n   Task: \"Explain quantum computing in simple terms\"\n   Last prompt: \"How does quantum entanglement work?\"\n   Output size: 4.5 KB (150 lines)\n\n2. ID: 234f5678-f90c-23e4-b567-537825693001\n   Status: WORKING (Active output generation)\n   Task: \"Generate a poem about AI\"\n   Output size: 1.2 KB (45 lines)\n\n3. ID: 345g6789-h01d-34f5-c678-648936704002\n   Status: IDLE (No output for 12.7s)\n   Task: \"Draft a research plan for renewable energy\"\n   Output size: 8.1 KB (320 lines)\n\nUse get_gosling_output with process_id=\"ID\" to view complete output of idle goslings.\nUse send_prompt_to_gosling with process_id=\"ID\" to continue conversations with idle goslings."
+    }
+  ]
+}
+```
+
+**Example Request for Specific Gosling:**
+```json
+{
+  "name": "get_gosling_status",
+  "arguments": {
+    "process_id": "123e4567-e89b-12d3-a456-426614174000",
+    "idle_threshold_ms": 3000
+  }
+}
+```
+
+**Example Response for Specific Gosling:**
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "=== Gosling Status ===\n\nID: 123e4567-e89b-12d3-a456-426614174000\nStatus: IDLE (No output for 5.2s)\nTask: \"Explain quantum computing in simple terms\"\nLast prompt: \"How does quantum entanglement work?\"\nPrompt count: 2\nOutput size: 4.5 KB (150 lines)\nRuntime: 1m 30s\n\nThis gosling is idle and ready for interaction.\nUse get_gosling_output to view its complete response or send_prompt_to_gosling to continue the conversation."
+    }
+  ]
+}
+```
+
 ### `send_prompt_to_gosling`
 
 Sends a follow-up prompt to a running gosling process, enabling interactive multi-turn conversations.
@@ -189,15 +244,21 @@ Releases a specific gosling process when you're done with it.
 
 2. **Manage Resources**: Always use `release_gosling` when you're done with a process to free up system resources.
 
-3. **Check Status Regularly**: Use `list_goslings` to monitor the status of all processes, especially for long-running tasks.
+3. **Monitor Activity Status**: Use `get_gosling_status` to efficiently monitor all goslings and only retrieve full output when they're idle.
 
-4. **Handle Errors Gracefully**: Check for error messages in the output and handle them appropriately.
+4. **Prevent Context Overflow**: When managing multiple goslings, use the activity sensor to minimize token usage and prevent unnecessary output fetching.
 
-5. **Use Options Judiciously**: The `options` parameter in `run_goose` can provide more control, but be aware of compatibility with different Goose CLI versions.
+5. **Check Status Regularly**: Use `list_goslings` to monitor the status of all processes, especially for long-running tasks.
 
-6. **Interactive Conversations**: Use `send_prompt_to_gosling` to have multi-turn conversations with running goslings, allowing for clarification, refinement, and follow-up questions.
+6. **Handle Errors Gracefully**: Check for error messages in the output and handle them appropriately.
 
-7. **Paginate Large Outputs**: For goslings with large outputs, use pagination parameters in `get_gosling_output` to view specific sections without overwhelming your context.
+7. **Use Options Judiciously**: The `options` parameter in `run_goose` can provide more control, but be aware of compatibility with different Goose CLI versions.
+
+8. **Interactive Conversations**: Use `send_prompt_to_gosling` to have multi-turn conversations with running goslings, allowing for clarification, refinement, and follow-up questions.
+
+9. **Paginate Large Outputs**: For goslings with large outputs, use pagination parameters in `get_gosling_output` to view specific sections without overwhelming your context.
+
+10. **Wait for Idle Status**: For the most efficient workflow, wait for a gosling to become idle (as reported by `get_gosling_status`) before fetching its output or sending a follow-up prompt.
 
 ## See Also
 
