@@ -26,6 +26,7 @@ export async function checkGooseInstalled(): Promise<true | string> {
       const maxWaitTime = 30000; // 30 seconds timeout (increased for Ollama or other local models)
       console.error(`Testing Goose CLI with a ${maxWaitTime/1000}s timeout...`);
 
+      // Make sure to put quotes around the text to prevent shell expansion issues
       await execPromise(`goose run --text "test"`, { timeout: maxWaitTime });
       return true;
     } catch (testError) {

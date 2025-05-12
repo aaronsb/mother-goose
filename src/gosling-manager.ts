@@ -129,9 +129,13 @@ export class GoslingManager {
     // -n: Named session for later resumption
     const args = ["run", "-s", "-n", sessionName];
 
-    // Add any options (like -t for text-only mode)
-    if (options && options.length > 0) {
-      args.push(...options);
+    // Add any options (like -t for text-only mode), but filter out --text as we'll add that explicitly
+    const filteredOptions = (options && options.length > 0)
+      ? options.filter(opt => opt !== '--text')
+      : [];
+
+    if (filteredOptions.length > 0) {
+      args.push(...filteredOptions);
     }
 
     // Add the --text option with a modified prompt to encourage interactivity
@@ -289,6 +293,7 @@ export class GoslingManager {
         // Build command to resume the session
         // Note: We need to provide both the session name AND a text prompt
         // Even for resumed sessions, Goose requires a text prompt
+        // Make sure --text is the last option with the prompt immediately following
         const resumeArgs = ["run", "-s", "-n", gosling.sessionName, "-r", "--text", followUpPrompt];
 
         // Get the parent's environment variables
