@@ -185,6 +185,36 @@ Use the get_gosling_status tool again to see which goslings have finished proces
 # This prevents context overflow by only retrieving complete outputs when necessary
 ```
 
+### Circuit Breaker for Token Safety
+
+Mother Goose includes a circuit breaker system to prevent token runaway scenarios where recursive AI instances could consume excessive resources:
+
+```
+# Configure the circuit breaker
+Use the configure_circuit_breaker tool to set safety limits:
+- enabled: true/false to enable/disable the circuit breaker
+- max_active_goslings: Maximum number of concurrent active goslings
+- max_total_goslings: Maximum number of total goslings including completed ones
+- max_runtime_minutes: Maximum runtime in minutes for any single gosling
+- max_output_size_kb: Maximum output size in KB for any single gosling
+- max_prompts_per_gosling: Maximum number of prompts per gosling
+- auto_terminate_idle_minutes: Auto-terminate goslings idle for this many minutes
+
+# Emergency killswitch
+Use the terminate_all_goslings tool to immediately stop all running gosling processes
+```
+
+The circuit breaker offers these safeguards:
+
+1. **Concurrency Limits**: Cap on maximum active/total goslings to prevent excessive parallel processing
+2. **Runtime Limits**: Auto-termination after a maximum runtime to prevent endless processing
+3. **Size Limits**: Hard cap on output size to prevent excessive token generation
+4. **Interaction Limits**: Limit on prompts per gosling to prevent dialog runaway
+5. **Idle Termination**: Auto-cleanup of goslings that have been idle too long
+6. **Emergency Killswitch**: Immediate termination of all processes when needed
+
+Default settings provide a reasonable balance between flexibility and safety.
+
 ### Advanced: Shared Memory Coordination
 
 When combined with [Memory Graph](https://github.com/aaronsb/memory-graph), all goslings can share knowledge through structured memory domains:

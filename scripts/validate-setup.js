@@ -61,6 +61,25 @@ async function validateSetup() {
     }
   }
   
+  // Check for runaway Goose processes
+  const processSpinner = createSpinner('Checking for runaway Goose processes...').start();
+  try {
+    const { stdout } = await execPromise('ps aux | grep goose | grep -v grep');
+    if (stdout.trim()) {
+      processSpinner.warn({ text: '⚠️ Found running Goose processes that might need termination' });
+      console.log('\nRunning Goose processes:');
+      console.log(stdout);
+      console.log('\nYou may want to terminate these processes if they are not needed:');
+      console.log('- Use the terminate_all_goslings tool in Mother Goose');
+      console.log('- Or manually terminate with: kill <PID>');
+    } else {
+      processSpinner.success({ text: '✅ No runaway Goose processes found' });
+    }
+  } catch (error) {
+    // No processes found is success
+    processSpinner.success({ text: '✅ No runaway Goose processes found' });
+  }
+
   // Check MCP configuration
   const mcpSpinner = createSpinner('Checking MCP configuration...').start();
   try {

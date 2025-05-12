@@ -53,8 +53,16 @@ if (args.includes('validate')) {
   process.exit(0);
 }
 
-// Create the Gosling manager
-const goslingManager = new GoslingManager();
+// Create the Gosling manager with circuit breaker enabled
+const goslingManager = new GoslingManager({
+  enabled: true,
+  maxActiveGoslings: 5,
+  maxTotalGoslings: 20,
+  maxRuntimeMinutes: 30,
+  maxOutputSizeBytes: 1024 * 1024, // 1MB
+  maxPromptsPerGosling: 10,
+  autoTerminateIdleMinutes: 10
+});
 
 /**
  * Create an MCP server with capabilities for resources and tools
@@ -114,6 +122,18 @@ Options:
   -v, --version  Show version information
   validate       Run the validation script to check prerequisites
 
+Circuit Breaker:
+  The server includes a circuit breaker to prevent token runaway.
+  You can configure it using the 'configure_circuit_breaker' MCP tool.
+
+  Default settings:
+  - Max active goslings: 5
+  - Max total goslings: 20
+  - Max runtime: 30 minutes
+  - Max output size: 1MB
+  - Max prompts per gosling: 10
+  - Auto-terminate idle goslings after: 10 minutes
+
 Prerequisites:
   - Node.js v16+
   - Block Goose CLI installed and configured
@@ -137,6 +157,15 @@ async function main() {
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);
+
+  // Log circuit breaker status
+  const config = goslingManager.getCircuitBreakerConfig();
+  console.error(`Circuit breaker: ${config.enabled ? 'ENABLED' : 'DISABLED'}`);
+  if (config.enabled) {
+    console.error(`- Max active goslings: ${config.maxActiveGoslings}`);
+    console.error(`- Max runtime: ${config.maxRuntimeMinutes} minutes`);
+    console.error(`- Auto-terminate idle goslings after: ${config.autoTerminateIdleMinutes} minutes`);
+  }
 
   // Check if Goose is installed
   console.error('Checking Goose CLI installation...');
@@ -166,6 +195,19 @@ main().catch((error) => {
   console.error("2. Check your MCP client configuration");
   console.error("3. Run validation: npx mother-goose validate");
   process.exit(1);
+});
+
+// Handle shutdown gracefully
+process.on('SIGINT', () => {
+  console.error("\nShutting down Mother Goose server...");
+  if (goslingManager) {
+    console.error("Terminating all running goslings...");
+    const result = goslingManager.terminateAllGoslings();
+    console.error(`Terminated ${result.terminated} gosling processes (${result.skipped} already terminated)`);
+    goslingManager.shutdown();
+  }
+  console.error("Goodbye!");
+  process.exit(0);
 });
 
 export default main;

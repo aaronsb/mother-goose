@@ -6,7 +6,7 @@ import {
   ErrorCode,
   ReadResourceRequest
 } from "@modelcontextprotocol/sdk/types.js";
-import { GoslingManager, ActivityStatus } from './gosling-manager.js';
+import { GoslingManager, ActivityStatus, CircuitBreakerConfig } from './gosling-manager.js';
 import { formatDate, formatDuration, formatFileSize } from './utils.js';
 
 /**
@@ -298,6 +298,51 @@ export async function handleListTools(): Promise<any> {
           },
           required: ["process_id"]
         }
+      },
+      {
+        name: "configure_circuit_breaker",
+        description: "Configure safety limits for gosling processes to prevent token runaway",
+        inputSchema: {
+          type: "object",
+          properties: {
+            enabled: {
+              type: "boolean",
+              description: "Enable or disable the circuit breaker"
+            },
+            max_active_goslings: {
+              type: "number",
+              description: "Maximum number of concurrent active goslings (default: 5)"
+            },
+            max_total_goslings: {
+              type: "number",
+              description: "Maximum number of total goslings including completed ones (default: 20)"
+            },
+            max_runtime_minutes: {
+              type: "number",
+              description: "Maximum runtime in minutes for any single gosling (default: 30)"
+            },
+            max_output_size_kb: {
+              type: "number",
+              description: "Maximum output size in KB for any single gosling (default: 1024)"
+            },
+            max_prompts_per_gosling: {
+              type: "number",
+              description: "Maximum number of prompts per gosling (default: 10)"
+            },
+            auto_terminate_idle_minutes: {
+              type: "number",
+              description: "Auto-terminate goslings idle for this many minutes (default: 10, 0 to disable)"
+            }
+          }
+        }
+      },
+      {
+        name: "terminate_all_goslings",
+        description: "Emergency killswitch: Terminate all running gosling processes",
+        inputSchema: {
+          type: "object",
+          properties: {}
+        }
       }
     ]
   };
@@ -311,6 +356,66 @@ export async function handleCallTool(
   request: any
 ): Promise<any> {
   switch (request.params.name) {
+    case "configure_circuit_breaker": {
+      // Extract configuration parameters
+      const enabled = request.params.arguments?.enabled;
+      const maxActiveGoslings = request.params.arguments?.max_active_goslings;
+      const maxTotalGoslings = request.params.arguments?.max_total_goslings;
+      const maxRuntimeMinutes = request.params.arguments?.max_runtime_minutes;
+      const maxOutputSizeKb = request.params.arguments?.max_output_size_kb;
+      const maxPromptsPerGosling = request.params.arguments?.max_prompts_per_gosling;
+      const autoTerminateIdleMinutes = request.params.arguments?.auto_terminate_idle_minutes;
+
+      // Build the configuration object with only provided values
+      const config: Partial<CircuitBreakerConfig> = {};
+
+      if (enabled !== undefined) config.enabled = Boolean(enabled);
+      if (maxActiveGoslings !== undefined) config.maxActiveGoslings = Number(maxActiveGoslings);
+      if (maxTotalGoslings !== undefined) config.maxTotalGoslings = Number(maxTotalGoslings);
+      if (maxRuntimeMinutes !== undefined) config.maxRuntimeMinutes = Number(maxRuntimeMinutes);
+      if (maxOutputSizeKb !== undefined) config.maxOutputSizeBytes = Number(maxOutputSizeKb) * 1024;
+      if (maxPromptsPerGosling !== undefined) config.maxPromptsPerGosling = Number(maxPromptsPerGosling);
+      if (autoTerminateIdleMinutes !== undefined) config.autoTerminateIdleMinutes = Number(autoTerminateIdleMinutes);
+
+      // Update the circuit breaker configuration
+      goslingManager.updateCircuitBreakerConfig(config);
+
+      // Get the current configuration after update
+      const currentConfig = goslingManager.getCircuitBreakerConfig();
+
+      return {
+        content: [{
+          type: "text",
+          text: `Circuit breaker configuration updated successfully.
+
+Current configuration:
+- Enabled: ${currentConfig.enabled ? 'Yes' : 'No'}
+- Max active goslings: ${currentConfig.maxActiveGoslings}
+- Max total goslings: ${currentConfig.maxTotalGoslings}
+- Max runtime: ${currentConfig.maxRuntimeMinutes} minutes
+- Max output size: ${Math.round(currentConfig.maxOutputSizeBytes / 1024)} KB
+- Max prompts per gosling: ${currentConfig.maxPromptsPerGosling}
+- Auto-terminate idle goslings after: ${currentConfig.autoTerminateIdleMinutes} minutes${currentConfig.autoTerminateIdleMinutes === 0 ? ' (disabled)' : ''}
+
+These limits will help prevent token runaway by controlling how many goslings can run simultaneously and how long they can run.`
+        }]
+      };
+    }
+
+    case "terminate_all_goslings": {
+      // Emergency killswitch to terminate all goslings
+      const result = goslingManager.terminateAllGoslings();
+
+      return {
+        content: [{
+          type: "text",
+          text: `Emergency killswitch activated. Terminated ${result.terminated} running gosling process${result.terminated !== 1 ? 'es' : ''}.${result.skipped > 0 ? ` ${result.skipped} gosling${result.skipped !== 1 ? 's were' : ' was'} already completed or terminated.` : ''}
+
+All runaway processes have been stopped.`
+        }]
+      };
+    }
+
     case "run_goose": {
       const prompt = String(request.params.arguments?.prompt || "");
       const options = Array.isArray(request.params.arguments?.options) 

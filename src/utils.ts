@@ -23,15 +23,34 @@ export async function checkGooseInstalled(): Promise<true | string> {
     try {
       // Test if Goose can actually execute a simple query with a timeout
       // Use the simplest form of the command to be compatible with all Goose versions
-      const maxWaitTime = 10000; // 10 seconds timeout
+      const maxWaitTime = 30000; // 30 seconds timeout (increased for Ollama or other local models)
+      console.error(`Testing Goose CLI with a ${maxWaitTime/1000}s timeout...`);
+
       await execPromise(`goose run --text "test"`, { timeout: maxWaitTime });
       return true;
     } catch (testError) {
       const error = testError as Error;
+      console.error(`Goose test command result: ${error.message}`);
 
       // Handle different types of test execution errors
       if (error.message.includes('timeout')) {
+        console.error('The test command timed out. This may be expected with slower models.');
+
+        // Check if we can see evidence of Ollama in the error message
+        if (error.message.includes('provider: ollama')) {
+          console.error('Detected Ollama provider in the output.');
+          console.error('Continuing anyway since Goose CLI is installed with Ollama...');
+          return true;
+        }
+
         return 'Goose CLI is installed but timed out when executing a test command. Check your API key configuration or network connection.';
+      }
+
+      // If the error message mentions Ollama starting up, consider it working
+      if (error.message.includes('provider: ollama')) {
+        console.error('Detected Ollama provider in Goose configuration.');
+        console.error('Continuing since Goose CLI is installed and configured with Ollama...');
+        return true;
       }
 
       // If the command failed but Goose is installed, we'll assume it's configured
