@@ -39,6 +39,20 @@ export interface Gosling {
   sessionName: string;  // Name of the Goose session
   lastOutputTime: Date; // Timestamp of last output update
   outputSize: number;   // Size of the output in bytes
+  promptCount: number;  // Number of prompts sent to this gosling
+}
+
+/**
+ * Configuration for the GoslingManager's circuit breaker
+ */
+export interface CircuitBreakerConfig {
+  maxActiveGoslings: number;          // Maximum number of concurrent active goslings
+  maxTotalGoslings: number;           // Maximum number of total goslings (includes completed)
+  maxRuntimeMinutes: number;          // Maximum runtime for any single gosling
+  maxOutputSizeBytes: number;         // Maximum output size for any single gosling
+  maxPromptsPerGosling: number;       // Maximum number of prompts per gosling
+  autoTerminateIdleMinutes: number;   // Auto-terminate goslings idle for this many minutes
+  enabled: boolean;                   // Whether the circuit breaker is enabled
 }
 
 /**
@@ -46,11 +60,65 @@ export interface Gosling {
  */
 export class GoslingManager {
   private goslings: Map<string, Gosling> = new Map();
+  private circuitBreaker: CircuitBreakerConfig;
+  private autoTerminateInterval?: NodeJS.Timeout;
+
+  /**
+   * Create a new GoslingManager with optional circuit breaker configuration
+   */
+  constructor(config?: Partial<CircuitBreakerConfig>) {
+    // Default circuit breaker configuration
+    this.circuitBreaker = {
+      maxActiveGoslings: 5,
+      maxTotalGoslings: 20,
+      maxRuntimeMinutes: 30,
+      maxOutputSizeBytes: 1024 * 1024, // 1MB
+      maxPromptsPerGosling: 10,
+      autoTerminateIdleMinutes: 10,
+      enabled: true,
+      ...config
+    };
+
+    // Set up auto-terminate timer if enabled
+    if (this.circuitBreaker.enabled && this.circuitBreaker.autoTerminateIdleMinutes > 0) {
+      // Check every minute for idle goslings
+      this.autoTerminateInterval = setInterval(() => {
+        this.terminateIdleGoslings();
+      }, 60 * 1000);
+    }
+
+    console.error(`GoslingManager initialized with circuit breaker ${this.circuitBreaker.enabled ? 'enabled' : 'disabled'}`);
+    if (this.circuitBreaker.enabled) {
+      console.error(`Circuit breaker config: 
+  - Max active goslings: ${this.circuitBreaker.maxActiveGoslings}
+  - Max total goslings: ${this.circuitBreaker.maxTotalGoslings}
+  - Max runtime: ${this.circuitBreaker.maxRuntimeMinutes} minutes
+  - Max output size: ${Math.round(this.circuitBreaker.maxOutputSizeBytes / 1024)} KB
+  - Max prompts per gosling: ${this.circuitBreaker.maxPromptsPerGosling}
+  - Auto-terminate idle goslings after: ${this.circuitBreaker.autoTerminateIdleMinutes} minutes`);
+    }
+  }
 
   /**
    * Run a new Goose process with the given prompt and options
    */
   async runGoose(prompt: string, options: string[] = []): Promise<Gosling> {
+    // Check circuit breaker limits before creating a new gosling
+    if (this.circuitBreaker.enabled) {
+      // Count active goslings
+      const activeCount = this.getAllGoslings().filter(g => g.status === "running").length;
+
+      // Check if we've exceeded the active limit
+      if (activeCount >= this.circuitBreaker.maxActiveGoslings) {
+        throw new Error(`Circuit breaker triggered: Maximum number of active goslings (${this.circuitBreaker.maxActiveGoslings}) reached`);
+      }
+
+      // Check if we've exceeded the total limit
+      if (this.goslings.size >= this.circuitBreaker.maxTotalGoslings) {
+        throw new Error(`Circuit breaker triggered: Maximum number of total goslings (${this.circuitBreaker.maxTotalGoslings}) reached`);
+      }
+    }
+
     const id = randomUUID();
     
     // Generate a unique session name for this gosling
@@ -110,7 +178,8 @@ export class GoslingManager {
       outputLineCount: 0,
       sessionName,
       lastOutputTime: timestamp,
-      outputSize: 0
+      outputSize: 0,
+      promptCount: 1
     };
     
     // Store the Gosling
@@ -119,6 +188,23 @@ export class GoslingManager {
     // Collect stdout
     gooseProcess.stdout.on("data", (data) => {
       const text = data.toString();
+      
+      // Circuit breaker: Check output size limit before appending
+      if (this.circuitBreaker.enabled && 
+          gosling.outputSize + text.length > this.circuitBreaker.maxOutputSizeBytes) {
+        const remaining = this.circuitBreaker.maxOutputSizeBytes - gosling.outputSize;
+        
+        // Only append up to the limit
+        if (remaining > 0) {
+          gosling.output += text.substring(0, remaining);
+          gosling.outputSize += remaining;
+        }
+        
+        console.error(`Circuit breaker triggered: Gosling ${id} output size limit reached (${this.circuitBreaker.maxOutputSizeBytes} bytes). Terminating.`);
+        this.terminateGosling(id);
+        return;
+      }
+      
       gosling.output += text;
 
       // Update activity tracking
@@ -149,6 +235,18 @@ export class GoslingManager {
       console.error(`Goose process ${id} error: ${err.message}`);
     });
     
+    // Set up circuit breaker for runtime limit
+    if (this.circuitBreaker.enabled && this.circuitBreaker.maxRuntimeMinutes > 0) {
+      const maxRuntimeMs = this.circuitBreaker.maxRuntimeMinutes * 60 * 1000;
+      setTimeout(() => {
+        // Check if the process is still running when timeout occurs
+        if (gosling.status === "running") {
+          console.error(`Circuit breaker triggered: Gosling ${id} exceeded maximum runtime of ${this.circuitBreaker.maxRuntimeMinutes} minutes. Terminating.`);
+          this.terminateGosling(id);
+        }
+      }, maxRuntimeMs);
+    }
+    
     return gosling;
   }
   
@@ -173,6 +271,13 @@ export class GoslingManager {
   async sendPromptToGosling(id: string, followUpPrompt: string): Promise<boolean> {
     const gosling = this.goslings.get(id);
     if (!gosling) {
+      return false;
+    }
+
+    // Circuit breaker: Check maximum prompts per gosling
+    if (this.circuitBreaker.enabled && 
+        gosling.promptCount >= this.circuitBreaker.maxPromptsPerGosling) {
+      console.error(`Circuit breaker triggered: Gosling ${id} has reached maximum prompts limit (${this.circuitBreaker.maxPromptsPerGosling})`);
       return false;
     }
 
@@ -211,6 +316,23 @@ export class GoslingManager {
         // Set up event handlers for the new process
         newProcess.stdout.on("data", (data) => {
           const text = data.toString();
+          
+          // Circuit breaker: Check output size limit before appending
+          if (this.circuitBreaker.enabled && 
+              gosling.outputSize + text.length > this.circuitBreaker.maxOutputSizeBytes) {
+            const remaining = this.circuitBreaker.maxOutputSizeBytes - gosling.outputSize;
+            
+            // Only append up to the limit
+            if (remaining > 0) {
+              gosling.output += text.substring(0, remaining);
+              gosling.outputSize += remaining;
+            }
+            
+            console.error(`Circuit breaker triggered: Gosling ${id} output size limit reached (${this.circuitBreaker.maxOutputSizeBytes} bytes). Terminating.`);
+            this.terminateGosling(id);
+            return;
+          }
+          
           gosling.output += text;
 
           // Update activity tracking
@@ -237,6 +359,18 @@ export class GoslingManager {
           gosling.status = "error";
           console.error(`Goose process ${id} error: ${err.message}`);
         });
+
+        // Reset runtime circuit breaker for the resumed process
+        if (this.circuitBreaker.enabled && this.circuitBreaker.maxRuntimeMinutes > 0) {
+          const maxRuntimeMs = this.circuitBreaker.maxRuntimeMinutes * 60 * 1000;
+          setTimeout(() => {
+            // Check if the process is still running when timeout occurs
+            if (gosling.status === "running") {
+              console.error(`Circuit breaker triggered: Gosling ${id} exceeded maximum runtime of ${this.circuitBreaker.maxRuntimeMinutes} minutes. Terminating.`);
+              this.terminateGosling(id);
+            }
+          }, maxRuntimeMs);
+        }
 
         // Give the process a moment to start up
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -265,6 +399,9 @@ export class GoslingManager {
       // Add to prompt history
       const timestamp = new Date();
       gosling.promptHistory.push({ prompt: followUpPrompt, timestamp });
+      
+      // Increment prompt count for circuit breaker
+      gosling.promptCount++;
 
       return true;
     } catch (error) {
@@ -516,5 +653,106 @@ export class GoslingManager {
     }
 
     return true;
+  }
+
+  /**
+   * Terminate all running goslings
+   */
+  terminateAllGoslings(): { terminated: number, skipped: number } {
+    let terminated = 0;
+    let skipped = 0;
+    
+    for (const gosling of this.getAllGoslings()) {
+      if (gosling.status === "running") {
+        this.terminateGosling(gosling.id);
+        terminated++;
+      } else {
+        skipped++;
+      }
+    }
+    
+    return { terminated, skipped };
+  }
+
+  /**
+   * Terminate goslings that have been idle for too long
+   */
+  private terminateIdleGoslings(): { terminated: number } {
+    if (!this.circuitBreaker.enabled || this.circuitBreaker.autoTerminateIdleMinutes <= 0) {
+      return { terminated: 0 };
+    }
+    
+    let terminated = 0;
+    const now = new Date();
+    const idleThresholdMs = this.circuitBreaker.autoTerminateIdleMinutes * 60 * 1000;
+    
+    for (const gosling of this.getAllGoslings()) {
+      if (gosling.status === "running") {
+        const timeSinceLastOutput = now.getTime() - gosling.lastOutputTime.getTime();
+        
+        if (timeSinceLastOutput > idleThresholdMs) {
+          console.error(`Auto-terminating idle gosling ${gosling.id} (idle for ${Math.round(timeSinceLastOutput / 60000)} minutes)`);
+          this.terminateGosling(gosling.id);
+          terminated++;
+        }
+      }
+    }
+    
+    return { terminated };
+  }
+
+  /**
+   * Update circuit breaker configuration
+   */
+  updateCircuitBreakerConfig(config: Partial<CircuitBreakerConfig>): void {
+    // Apply the new configuration
+    this.circuitBreaker = {
+      ...this.circuitBreaker,
+      ...config
+    };
+    
+    // Clear existing auto-terminate interval if it exists
+    if (this.autoTerminateInterval) {
+      clearInterval(this.autoTerminateInterval);
+      this.autoTerminateInterval = undefined;
+    }
+    
+    // Set up new auto-terminate timer if enabled
+    if (this.circuitBreaker.enabled && this.circuitBreaker.autoTerminateIdleMinutes > 0) {
+      this.autoTerminateInterval = setInterval(() => {
+        this.terminateIdleGoslings();
+      }, 60 * 1000);
+    }
+    
+    console.error(`Updated circuit breaker configuration: ${this.circuitBreaker.enabled ? 'enabled' : 'disabled'}`);
+    if (this.circuitBreaker.enabled) {
+      console.error(`Circuit breaker config: 
+  - Max active goslings: ${this.circuitBreaker.maxActiveGoslings}
+  - Max total goslings: ${this.circuitBreaker.maxTotalGoslings}
+  - Max runtime: ${this.circuitBreaker.maxRuntimeMinutes} minutes
+  - Max output size: ${Math.round(this.circuitBreaker.maxOutputSizeBytes / 1024)} KB
+  - Max prompts per gosling: ${this.circuitBreaker.maxPromptsPerGosling}
+  - Auto-terminate idle goslings after: ${this.circuitBreaker.autoTerminateIdleMinutes} minutes`);
+    }
+  }
+
+  /**
+   * Get current circuit breaker configuration
+   */
+  getCircuitBreakerConfig(): CircuitBreakerConfig {
+    return { ...this.circuitBreaker };
+  }
+  
+  /**
+   * Clean up resources when shutting down
+   */
+  shutdown(): void {
+    // Clean up auto-terminate timer if it exists
+    if (this.autoTerminateInterval) {
+      clearInterval(this.autoTerminateInterval);
+    }
+    
+    // Terminate all running goslings
+    this.terminateAllGoslings();
   }
 }

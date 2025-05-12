@@ -4,7 +4,7 @@ This document provides detailed reference information for all MCP tools provided
 
 ## Overview
 
-Mother Goose provides six main tools that enable AI agents to interact with Goose CLI:
+Mother Goose provides eight main tools that enable AI agents to interact with Goose CLI:
 
 1. `run_goose`: Create and start a new Goose process
 2. `list_goslings`: List all Goose processes
@@ -12,6 +12,8 @@ Mother Goose provides six main tools that enable AI agents to interact with Goos
 4. `get_gosling_status`: Get a compact activity status report (working/idle) for goslings
 5. `send_prompt_to_gosling`: Send a follow-up prompt to a running gosling process
 6. `release_gosling`: Release a specific process
+7. `configure_circuit_breaker`: Configure safety limits to prevent token runaway
+8. `terminate_all_goslings`: Emergency killswitch to terminate all running processes
 
 ## Tool Details
 
@@ -238,6 +240,76 @@ Releases a specific gosling process when you're done with it.
 }
 ```
 
+### `configure_circuit_breaker`
+
+Configures safety limits for gosling processes to prevent token runaway. This tool enables you to customize the built-in circuit breaker system that protects against excessive resource consumption.
+
+**Parameters:**
+- `enabled` (boolean, optional): Enable or disable the circuit breaker
+- `max_active_goslings` (number, optional): Maximum number of concurrent active goslings (default: 5)
+- `max_total_goslings` (number, optional): Maximum number of total goslings including completed ones (default: 20)
+- `max_runtime_minutes` (number, optional): Maximum runtime in minutes for any single gosling (default: 30)
+- `max_output_size_kb` (number, optional): Maximum output size in KB for any single gosling (default: 1024)
+- `max_prompts_per_gosling` (number, optional): Maximum number of prompts per gosling (default: 10)
+- `auto_terminate_idle_minutes` (number, optional): Auto-terminate goslings idle for this many minutes (default: 10, 0 to disable)
+
+**Returns:**
+- Current circuit breaker configuration after update
+
+**Example Request:**
+```json
+{
+  "name": "configure_circuit_breaker",
+  "arguments": {
+    "max_active_goslings": 3,
+    "max_runtime_minutes": 15,
+    "auto_terminate_idle_minutes": 5
+  }
+}
+```
+
+**Example Response:**
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Circuit breaker configuration updated successfully.\n\nCurrent configuration:\n- Enabled: Yes\n- Max active goslings: 3\n- Max total goslings: 20\n- Max runtime: 15 minutes\n- Max output size: 1024 KB\n- Max prompts per gosling: 10\n- Auto-terminate idle goslings after: 5 minutes\n\nThese limits will help prevent token runaway by controlling how many goslings can run simultaneously and how long they can run."
+    }
+  ]
+}
+```
+
+### `terminate_all_goslings`
+
+Emergency killswitch that immediately terminates all running gosling processes. Use this tool when you need to stop all processes at once, especially in cases of token runaway.
+
+**Parameters:**
+- None
+
+**Returns:**
+- Confirmation message with number of terminated processes
+
+**Example Request:**
+```json
+{
+  "name": "terminate_all_goslings",
+  "arguments": {}
+}
+```
+
+**Example Response:**
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Emergency killswitch activated. Terminated 3 running gosling processes. 5 goslings were already completed or terminated.\n\nAll runaway processes have been stopped."
+    }
+  ]
+}
+```
+
 ## Tool Usage Best Practices
 
 1. **Be Specific with Prompts**: When using `run_goose`, provide clear, specific prompts to get better results.
@@ -260,8 +332,13 @@ Releases a specific gosling process when you're done with it.
 
 10. **Wait for Idle Status**: For the most efficient workflow, wait for a gosling to become idle (as reported by `get_gosling_status`) before fetching its output or sending a follow-up prompt.
 
+11. **Configure Safety Limits**: Use the `configure_circuit_breaker` tool to adjust safety limits based on your specific use case. For simple tasks, use more conservative limits; for complex workflows, increase the limits as needed.
+
+12. **Use the Emergency Killswitch**: If you notice excessive token usage or runaway processes, use the `terminate_all_goslings` tool immediately to stop all running processes.
+
 ## See Also
 
 - [MCP Resources Reference](./resources.md)
 - [Basic Usage Guide](../usage/basic-usage.md)
 - [Advanced Usage Guide](../usage/advanced-usage.md)
+- [Circuit Breaker Guide](../usage/circuit-breaker.md)
