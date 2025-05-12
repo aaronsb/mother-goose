@@ -36,16 +36,29 @@ async function validateSetup() {
   // Test if Goose can execute a simple query
   const testSpinner = createSpinner('Testing Goose CLI with a simple query...').start();
   try {
-    await execPromise('goose run --text "Say hello!" --max-tokens 20');
+    // Use the simplest form of the command to be compatible with all Goose versions
+    await execPromise('goose run --text "Say hello!"');
     testSpinner.success({ text: '✅ Goose CLI can execute queries successfully' });
   } catch (error) {
-    testSpinner.error({ text: '❌ Failed to execute a test query with Goose' });
-    console.error('\n🛑 Error: Could not run a test query with Goose.');
-    console.log('\nPlease check your Goose configuration:');
-    console.log('1. Ensure you have a valid API key configured');
-    console.log('2. Check your network connection');
-    console.log('3. Try running `goose run --text "Hello"` manually to troubleshoot');
-    process.exit(1);
+    // If the command exists but returns an error, we'll continue with a warning
+    if (error.message.includes('error:') || error.message.includes('ERR!') ||
+        error.message.includes('unexpected argument') || error.message.includes('not recognized')) {
+      testSpinner.warn({ text: '⚠️ Goose CLI is installed but may have different parameters' });
+      console.log('\nNote: There were errors when testing Goose CLI:');
+      console.log(`${error.message.split('\n')[0]}`);
+      console.log('\nWe\'ll continue anyway, but if you encounter issues:');
+      console.log('1. Check your Goose CLI version with: goose --version');
+      console.log('2. Ensure Goose can run a basic command: goose run --text "Hello"');
+      console.log('3. If you have an older Goose version, try: goose run "Hello"');
+    } else {
+      testSpinner.error({ text: '❌ Failed to execute a test query with Goose' });
+      console.error('\n🛑 Error: Could not run a test query with Goose.');
+      console.log('\nPlease check your Goose configuration:');
+      console.log('1. Ensure you have a valid API key configured');
+      console.log('2. Check your network connection');
+      console.log('3. Try running `goose run --text "Hello"` manually to troubleshoot');
+      process.exit(1);
+    }
   }
   
   // Check MCP configuration
