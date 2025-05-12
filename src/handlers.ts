@@ -412,7 +412,7 @@ All runaway processes have been stopped.`
     case "run_goose": {
       const prompt = String(request.params.arguments?.prompt || "");
       // Always use a default empty array for options - no longer exposed to callers
-      const options = [];
+      const options: string[] = [];
 
       if (!prompt) {
         throw new McpError(ErrorCode.InvalidParams, "Prompt is required");
