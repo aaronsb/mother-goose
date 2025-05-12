@@ -1,26 +1,57 @@
 {
   "name": "mother-goose",
   "version": "0.1.0",
-  "description": "A Model Context Protocol Server that calls the block goose client in a recursive fashion.",
-  "private": true,
+  "description": "An MCP server that recursively spawns Goose instances, allowing agents to use Goose to solve complex problems.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aaronsb/mother-goose.git"
+  },
   "type": "module",
   "bin": {
-    "mother-goose": "./build/index.js"
+    "mother-goose": "./build/index.js",
+    "mother-goose-validate": "./bin/validate.js"
   },
   "files": [
-    "build"
+    "build",
+    "README.md",
+    "QUICK-START.md",
+    "bin",
+    "scripts/validate-setup.js"
   ],
   "scripts": {
-    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\" && node -e \"require('fs').chmodSync('bin/validate.js', '755')\"",
     "prepare": "npm run build",
     "watch": "tsc --watch",
-    "inspector": "npx @modelcontextprotocol/inspector build/index.js"
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "lint": "eslint . --ext .ts",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "ci": "./scripts/build.sh",
+    "validate": "node ./scripts/validate-setup.js",
+    "postinstall": "node -e \"console.log('\\n\\n🔍 Run \\'npm run validate\\' to check if all prerequisites are installed.\\n\\n')\""
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "0.6.0"
+    "@modelcontextprotocol/sdk": "0.6.0",
+    "nanospinner": "^1.1.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
     "@types/node": "^20.11.24",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
     "typescript": "^5.3.3"
-  }
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "goose",
+    "ai",
+    "llm",
+    "cli",
+    "block"
+  ]
 }

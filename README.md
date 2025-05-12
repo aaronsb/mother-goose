@@ -1,87 +1,109 @@
-# Mother Goose MCP Server
+# Mother Goose: Recursive Goose Invocation for MCP
 
-A Model Context Protocol (MCP) server that allows an agent to call Goose and manage child processes (goslings).
+Mother Goose is a Model Context Protocol (MCP) server that enables AI agents to recursively spawn and interact with [Block's Goose CLI](https://block.xyz/docs/goose), creating nested AI instances that can collaborate on complex problems.
 
-## Overview
+![Mother Goose Concept](https://user-images.githubusercontent.com/1100351/244875611-d6b59e30-2ea5-4f71-8307-c19f95f9c5b4.png)
 
-The Mother Goose MCP server provides a structured interface for running Goose commands and managing the resulting processes. It enables:
+## What is Mother Goose?
 
-- Running Goose commands with custom prompts
-- Managing multiple concurrent Goose processes (goslings)
-- Monitoring process status and output
-- Terminating processes when needed
+Mother Goose allows AI agents (like Claude in Anthropic Console) to:
 
-## Features
+1. **Spawn child AI instances** using Goose CLI
+2. **Manage multiple "goslings" in parallel** for collaborative problem-solving
+3. **Monitor subprocess status and output** in real-time
+4. **Terminate child processes** when they're no longer needed
 
-### MCP Tools
+This creates a powerful recursive capability where an AI can delegate subtasks to other AI instances, enabling more complex workflows and reasoning chains.
 
-The server provides the following tools:
+## Prerequisites
 
-1. **`run_goose`**
-   - Creates a new Goose process with the specified prompt
-   - Returns process ID and initial output
-   - Parameters:
-     - `prompt`: The prompt to send to Goose
-     - `options`: Optional parameters for Goose (e.g., ["-t"] for text-only mode)
+Before using Mother Goose, you need:
 
-2. **`list_goslings`**
-   - Lists all running and completed Goose processes
-   - Parameters:
-     - `status`: Filter by status ("all", "running", "completed", "error")
+1. **Node.js v16 or higher**
+2. **[Block Goose CLI](https://block.xyz/docs/goose) installed and configured**
+   - Make sure you have a working Goose installation
+   - Verify you can run `goose run --text "Hello"` from your terminal
 
-3. **`get_gosling_output`**
-   - Gets the current output from a specific gosling process
-   - Parameters:
-     - `process_id`: ID of the gosling process
+## Quick Start
 
-4. **`terminate_gosling`**
-   - Terminates a specific gosling process
-   - Parameters:
-     - `process_id`: ID of the gosling process to terminate
+The fastest way to use Mother Goose is with npx:
 
-### MCP Resources
+```bash
+# Run validation to check prerequisites
+npx mother-goose validate
 
-The server provides the following resources:
-
-1. **`goslings://list`**
-   - Lists all running gosling processes
-
-2. **`goslings://{process_id}`**
-   - Details about a specific gosling process
-
-3. **`goslings://{process_id}/output`**
-   - Current output from a specific gosling process
+# Run the MCP server
+npx mother-goose
+```
 
 ## Installation
 
-### Prerequisites
+For a persistent installation:
 
-- Node.js (v16 or higher)
-- Goose CLI installed and available in your PATH
+```bash
+# Install globally
+npm install -g mother-goose
 
-### Setup
+# Run validation to check prerequisites  
+mother-goose validate
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/mother-goose.git
-   cd mother-goose
-   ```
+# Start the server
+mother-goose
+```
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+Or install locally:
 
-3. Build the project:
-   ```bash
-   npm run build
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/aaronsb/mother-goose.git
+cd mother-goose
 
-## Usage
+# Install dependencies
+npm install
 
-### Adding to MCP Settings
+# Run validation
+npm run validate
 
-To use the Mother Goose MCP server with Cline, add it to your MCP settings configuration file:
+# Build and run
+npm run build
+node build/index.js
+```
+
+## Configuration with MCP Clients
+
+To use Mother Goose with an MCP client (like Anthropic Claude), add it to your MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "mother-goose": {
+      "command": "npx",
+      "args": ["mother-goose"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+If you've installed globally:
+
+```json
+{
+  "mcpServers": {
+    "mother-goose": {
+      "command": "mother-goose",
+      "args": [],
+      "env": {},
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+If you've cloned the repo:
 
 ```json
 {
@@ -97,20 +119,104 @@ To use the Mother Goose MCP server with Cline, add it to your MCP settings confi
 }
 ```
 
-Replace `/path/to/mother-goose` with the actual path to your Mother Goose installation.
+## MCP Tools
 
-### Example Usage
+Mother Goose provides the following tools to MCP clients:
 
-Once the server is configured, you can use it through Cline with commands like:
+### 1. `run_goose`
+
+Spawns a new Goose process with the specified prompt.
+
+**Parameters:**
+- `prompt`: The prompt to send to Goose
+- `options`: Optional parameters for Goose (e.g., `["-t"]` for text-only mode)
+
+**Example:**
+```
+Use the run_goose tool to research quantum computing.
+```
+
+### 2. `list_goslings`
+
+Lists all running and completed Goose processes.
+
+**Parameters:**
+- `status`: Filter by status ("all", "running", "completed", "error")
+
+**Example:**
+```
+Use the list_goslings tool to see all active processes.
+```
+
+### 3. `get_gosling_output`
+
+Gets the current output from a specific gosling process.
+
+**Parameters:**
+- `process_id`: ID of the gosling process
+
+**Example:**
+```
+Use the get_gosling_output tool to check the results from process 123e4567-e89b-12d3-a456-426614174000.
+```
+
+### 4. `terminate_gosling`
+
+Terminates a specific gosling process.
+
+**Parameters:**
+- `process_id`: ID of the gosling process to terminate
+
+**Example:**
+```
+Use the terminate_gosling tool to stop process 123e4567-e89b-12d3-a456-426614174000.
+```
+
+## MCP Resources
+
+The server provides the following resources:
+
+1. **`goslings://list`**: Lists all running gosling processes
+2. **`goslings://{process_id}`**: Details about a specific gosling process
+3. **`goslings://{process_id}/output`**: Current output from a specific gosling process
+
+## Usage Examples
+
+### Basic Usage
+
+After configuring Mother Goose with your MCP client, you can:
+
+1. **Start a child Goose process:**
+   ```
+   Use the run_goose tool to investigate the latest trends in renewable energy.
+   ```
+
+2. **Check the status of all processes:**
+   ```
+   Use the list_goslings tool to see all active processes.
+   ```
+
+3. **Retrieve output from a specific process:**
+   ```
+   Use the get_gosling_output tool to check the results from process [ID].
+   ```
+
+4. **Terminate a process when finished:**
+   ```
+   Use the terminate_gosling tool to stop process [ID].
+   ```
+
+### Advanced Recursive Usage
+
+Mother Goose enables powerful recursive AI workflows:
 
 ```
-Use the run_goose tool to search the internet for today's news.
-```
+I need to solve a complex machine learning problem. Use the run_goose tool to create three specialist goslings:
+1. One to research the latest papers on this topic
+2. One to design an experimental approach
+3. One to draft code snippets for implementation
 
-This will create a new Goose process and return a process ID. You can then use:
-
-```
-Use the get_gosling_output tool to check the results from process [ID].
+Then, I'll coordinate their efforts to produce a comprehensive solution.
 ```
 
 ## Development
@@ -131,15 +237,31 @@ You can test the server using the MCP Inspector:
 npm run inspector
 ```
 
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test files
+npm test -- tests/basic.test.ts
+```
+
+### Linting
+
+```bash
+npm run lint
+```
+
 ## Architecture
 
-The Mother Goose MCP server follows a modular architecture:
+Mother Goose follows a modular architecture:
 
 ```
 ┌─────────────────┐      ┌───────────────────┐
 │                 │      │                   │
 │   MCP Client    │◄────►│   Mother Goose    │
-│                 │      │   MCP Server      │
+│   (e.g. Claude) │      │   MCP Server      │
 │                 │      │                   │
 └─────────────────┘      └───────┬───────────┘
                                  │
@@ -147,11 +269,21 @@ The Mother Goose MCP server follows a modular architecture:
                          ┌───────────────────┐
                          │                   │
                          │ Gosling Processes │
+                         │ (Child Goose CLI) │
                          │                   │
                          └───────────────────┘
 ```
 
 The server uses Node.js's child_process module to spawn and manage Goose processes, collecting their output and providing it through MCP tools and resources.
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. **Validate your setup**: Run `npx mother-goose validate` to check prerequisites
+2. **Verify Goose works**: Ensure you can run `goose run --text "Hello"` directly
+3. **Check MCP configuration**: Make sure your MCP client is correctly configured
+4. **Inspect environment variables**: Ensure no conflicting environment variables are set
 
 ## License
 
