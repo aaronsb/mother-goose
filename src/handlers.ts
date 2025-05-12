@@ -25,6 +25,12 @@ export async function handleListResources(
         name: "List of all gosling processes",
         description: "Information about all running and completed Goose processes"
       },
+      {
+        uri: "prompts://executive-agent",
+        mimeType: "text/markdown",
+        name: "Executive Agent Framework",
+        description: "Prompt template for orchestrating multi-agent workflows with Mother Goose and Memory Graph"
+      },
       ...goslings.map(gosling => ({
         uri: `goslings://${gosling.id}`,
         mimeType: "application/json",
@@ -52,6 +58,12 @@ export async function handleListResourceTemplates(): Promise<any> {
         name: "Gosling process output",
         mimeType: "text/plain",
         description: "Output from a specific Goose process"
+      },
+      {
+        uriTemplate: "prompts://{prompt_name}",
+        name: "Prompt template",
+        mimeType: "text/markdown",
+        description: "Pre-defined prompt template for specialized agent roles"
       }
     ]
   };
@@ -61,11 +73,11 @@ export async function handleListResourceTemplates(): Promise<any> {
  * Handler for reading resources
  */
 export async function handleReadResource(
-  goslingManager: GoslingManager, 
+  goslingManager: GoslingManager,
   request: ReadResourceRequest
 ): Promise<any> {
   const uri = request.params.uri;
-  
+
   // Handle goslings://list resource
   if (uri === "goslings://list") {
     const goslings = goslingManager.getAllGoslings();
@@ -75,16 +87,16 @@ export async function handleReadResource(
       status: g.status,
       startTime: formatDate(g.startTime),
       endTime: g.endTime ? formatDate(g.endTime) : null,
-      duration: g.endTime 
+      duration: g.endTime
         ? formatDuration(g.startTime, g.endTime)
         : formatDuration(g.startTime) + " (running)",
       hasOutput: g.output.length > 0,
       hasError: g.error.length > 0,
-      outputPreview: g.output.length > 0 
-        ? g.output.substring(0, 100) + (g.output.length > 100 ? '...' : '') 
+      outputPreview: g.output.length > 0
+        ? g.output.substring(0, 100) + (g.output.length > 100 ? '...' : '')
         : null
     }));
-    
+
     return {
       contents: [{
         uri,
@@ -93,17 +105,49 @@ export async function handleReadResource(
       }]
     };
   }
-  
+
+  // Handle prompts:// resources
+  const promptMatch = uri.match(/^prompts:\/\/([^/]+)$/);
+  if (promptMatch) {
+    const promptName = promptMatch[1];
+    let promptPath;
+
+    // Map prompt name to file path
+    switch (promptName) {
+      case "executive-agent":
+        promptPath = "prompts/executive-agent.md";
+        break;
+      default:
+        throw new McpError(ErrorCode.InvalidRequest, `Prompt template not found: ${promptName}`);
+    }
+
+    try {
+      // Read the prompt file
+      const fs = await import('fs/promises');
+      const content = await fs.readFile(promptPath, 'utf8');
+
+      return {
+        contents: [{
+          uri,
+          mimeType: "text/markdown",
+          text: content
+        }]
+      };
+    } catch (error) {
+      throw new McpError(ErrorCode.InternalError, `Failed to read prompt template: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   // Handle goslings://{process_id} resource
   const processIdMatch = uri.match(/^goslings:\/\/([^/]+)$/);
   if (processIdMatch) {
     const processId = processIdMatch[1];
     const gosling = goslingManager.getGosling(processId);
-    
+
     if (!gosling) {
       throw new McpError(ErrorCode.InvalidRequest, `Gosling process ${processId} not found`);
     }
-    
+
     // Format the prompt history
     const promptHistory = gosling.promptHistory
       ? gosling.promptHistory.map(entry => ({
@@ -131,7 +175,7 @@ export async function handleReadResource(
         ? gosling.output.substring(0, 100) + (gosling.output.length > 100 ? '...' : '')
         : null
     };
-    
+
     return {
       contents: [{
         uri,
@@ -140,19 +184,19 @@ export async function handleReadResource(
       }]
     };
   }
-  
+
   // Handle goslings://{process_id}/output resource
   const outputMatch = uri.match(/^goslings:\/\/([^/]+)\/output$/);
   if (outputMatch) {
     const processId = outputMatch[1];
     const gosling = goslingManager.getGosling(processId);
-    
+
     if (!gosling) {
       throw new McpError(ErrorCode.InvalidRequest, `Gosling process ${processId} not found`);
     }
-    
+
     let output = gosling.output || "No output yet.";
-    
+
     // Add status information at the top
     const statusInfo = `# Gosling Process ID: ${gosling.id}
 # Status: ${gosling.status}
@@ -163,14 +207,14 @@ ${gosling.endTime ? '# Ended: ' + formatDate(gosling.endTime) : '# Duration: ' +
 ----- OUTPUT -----
 
 `;
-    
+
     output = statusInfo + output;
-    
+
     // If there's an error, append it to the output
     if (gosling.error) {
       output += "\n\n----- ERROR -----\n\n" + gosling.error;
     }
-    
+
     return {
       contents: [{
         uri,
@@ -179,7 +223,7 @@ ${gosling.endTime ? '# Ended: ' + formatDate(gosling.endTime) : '# Duration: ' +
       }]
     };
   }
-  
+
   throw new McpError(ErrorCode.InvalidRequest, `Resource not found: ${uri}`);
 }
 
