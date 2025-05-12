@@ -2,7 +2,9 @@
 
 Mother Goose is a Model Context Protocol (MCP) server that enables AI agents to recursively spawn and interact with [Block's Goose CLI](https://block.xyz/docs/goose), creating nested AI instances that can collaborate on complex problems.
 
-![Mother Goose Concept](https://user-images.githubusercontent.com/1100351/244875611-d6b59e30-2ea5-4f71-8307-c19f95f9c5b4.png)
+<p align="center">
+  <img src="./docs/goose.png" alt="Mother Goose Logo" width="300">
+</p>
 
 ## What is Mother Goose?
 
