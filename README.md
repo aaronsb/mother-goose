@@ -12,10 +12,11 @@ Mother Goose allows AI agents (like Claude in Anthropic Console) to:
 
 1. **Spawn child AI instances** using Goose CLI
 2. **Manage multiple "goslings" in parallel** for collaborative problem-solving
-3. **Monitor subprocess status and output** in real-time
-4. **Release child processes** when they're no longer needed
+3. **Monitor subprocess status and output** in real-time, with pagination for large outputs
+4. **Have interactive conversations** with running gosling processes via follow-up prompts
+5. **Release child processes** when they're no longer needed
 
-This creates a powerful recursive capability where an AI can delegate subtasks to other AI instances, enabling more complex workflows and reasoning chains.
+This creates a powerful recursive capability where an AI can delegate subtasks to other AI instances and have ongoing conversations with them, enabling more complex workflows and interactive reasoning chains.
 
 ## Documentation
 
@@ -81,14 +82,30 @@ Use the list_goslings tool to see all active processes.
 
 ### 3. `get_gosling_output`
 
-Gets the current output from a specific gosling process.
+Gets the current output from a specific gosling process with pagination support.
 
 **Example:**
 ```
+# Basic usage
 Use the get_gosling_output tool to check the results from process [ID].
+
+# With pagination (Unix more/less style)
+Use the get_gosling_output tool with offset=100 and limit=50 to view lines 100-150.
+
+# Get full output
+Use the get_gosling_output tool with full_output=true to get the complete output.
 ```
 
-### 4. `release_gosling`
+### 4. `send_prompt_to_gosling`
+
+Sends a follow-up prompt to a running gosling process in interactive mode, enabling multi-turn conversations. Goslings are automatically started in interactive mode, so they stay alive and can receive multiple prompts.
+
+**Example:**
+```
+Use the send_prompt_to_gosling tool to ask the gosling at process [ID] to elaborate on its findings.
+```
+
+### 5. `release_gosling`
 
 Releases a specific gosling process when you're done with it.
 
@@ -110,6 +127,27 @@ I need to solve a complex machine learning problem. Use the run_goose tool to cr
 3. One to draft code snippets for implementation
 
 Then, I'll coordinate their efforts to produce a comprehensive solution.
+```
+
+### Interactive Conversations with Goslings
+
+You can have multi-turn conversations with running goslings, providing feedback or additional instructions:
+
+```
+# Create a gosling to work on a task
+Use the run_goose tool to create a gosling for drafting a research proposal.
+
+# Check initial progress
+Use the get_gosling_output tool to see the gosling's progress.
+
+# Send follow-up instructions
+Use the send_prompt_to_gosling tool to refine the focus: "Please emphasize the methodology section and expand on the data collection approach."
+
+# Check updated output
+Use the get_gosling_output tool to see how the gosling incorporated your feedback.
+
+# Continue the conversation
+Use the send_prompt_to_gosling tool again: "Now please add a budget section with estimated costs."
 ```
 
 ### Advanced: Shared Memory Coordination

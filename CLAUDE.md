@@ -81,18 +81,25 @@ The server provides the following tools:
 
 1. `run_goose`: Runs a Goose command with the specified prompt.
 2. `list_goslings`: Lists all running and completed Goose processes.
-3. `get_gosling_output`: Gets the current output from a specific gosling process.
-4. `terminate_gosling`: Terminates a specific gosling process.
+3. `get_gosling_output`: Gets the current output from a specific gosling process with pagination support.
+4. `send_prompt_to_gosling`: Sends a follow-up prompt to a running gosling process, enabling interactive conversations.
+5. `release_gosling`: Releases a specific gosling process when you're done with it.
 
 ## Key Implementation Details
 
 1. **Process Management**: Uses Node.js's `child_process` module to spawn and manage Goose processes, collecting their output and providing it through MCP tools and resources.
 
-2. **Error Handling**: Comprehensive error handling for process failures, missing Goose installation, and invalid requests.
+2. **Interactive Goslings**: Supports sending follow-up prompts to running gosling processes, enabling multi-turn conversations and iterative workflows.
 
-3. **MCP SDK Integration**: Implements the Model Context Protocol using the `@modelcontextprotocol/sdk` package.
+3. **Pagination Support**: Provides Unix-like pagination (similar to `more`/`less`) for viewing large outputs efficiently, with options for jumping to specific sections or viewing the full output.
 
-4. **Environment Variables**: Sets up non-ANSI terminal environment variables to ensure proper output formatting.
+4. **Prompt History**: Tracks the history of all prompts sent to each gosling process, making it easy to see the conversation flow.
+
+5. **Error Handling**: Comprehensive error handling for process failures, missing Goose installation, and invalid requests.
+
+6. **MCP SDK Integration**: Implements the Model Context Protocol using the `@modelcontextprotocol/sdk` package.
+
+7. **Environment Variables**: Sets up non-ANSI terminal environment variables to ensure proper output formatting.
 
 ## Codebase Tips
 

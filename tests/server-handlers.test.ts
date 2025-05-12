@@ -59,7 +59,20 @@ describe('Server Request Handlers', () => {
       status: 'running',
       output: '',
       error: '',
-      startTime: new Date()
+      startTime: new Date(),
+      promptHistory: [{ prompt: 'test prompt', timestamp: new Date() }],
+      outputLineCount: 0
+    });
+
+    mockGoslingManager.sendPromptToGosling.mockReturnValue(true);
+    mockGoslingManager.getGoslingOutput.mockReturnValue({
+      text: 'test output',
+      metadata: {
+        totalLines: 10,
+        startLine: 0,
+        endLine: 10,
+        hasMore: false
+      }
     });
     mockGoslingManager.terminateGosling.mockReturnValue(false);
   });
@@ -368,41 +381,220 @@ describe('Server Request Handlers', () => {
           output: 'output data',
           error: '',
           startTime: new Date(),
-          endTime: new Date()
+          endTime: new Date(),
+          promptHistory: [{ prompt: 'test prompt', timestamp: new Date() }],
+          outputLineCount: 10
         });
-        
-        const result = await handleCallTool(mockGoslingManager, { 
-          params: { 
+
+        const result = await handleCallTool(mockGoslingManager, {
+          params: {
             name: 'get_gosling_output',
             arguments: {
               process_id: 'test-uuid'
             }
-          } 
+          }
         } as any);
-        
-        expect(result.content[0].text).toContain('Output from gosling test-uuid');
-        expect(result.content[0].text).toContain('output data');
+
+        expect(mockGoslingManager.getGoslingOutput).toHaveBeenCalledWith('test-uuid', 0, 100, false);
+        expect(result.content[0].text).toContain('=== Gosling Process test-uuid ===');
+        expect(result.content[0].text).toContain('test output');
       });
-      
+
+      it('should support pagination parameters', async () => {
+        mockGoslingManager.getGosling.mockReturnValue({
+          id: 'test-uuid',
+          prompt: 'test prompt',
+          options: [],
+          process: {} as any,
+          status: 'running',
+          output: 'output data',
+          error: '',
+          startTime: new Date(),
+          promptHistory: [{ prompt: 'test prompt', timestamp: new Date() }],
+          outputLineCount: 100
+        });
+
+        await handleCallTool(mockGoslingManager, {
+          params: {
+            name: 'get_gosling_output',
+            arguments: {
+              process_id: 'test-uuid',
+              offset: 50,
+              limit: 25,
+              full_output: false
+            }
+          }
+        } as any);
+
+        expect(mockGoslingManager.getGoslingOutput).toHaveBeenCalledWith('test-uuid', 50, 25, false);
+      });
+
+      it('should support full output request', async () => {
+        mockGoslingManager.getGosling.mockReturnValue({
+          id: 'test-uuid',
+          prompt: 'test prompt',
+          options: [],
+          process: {} as any,
+          status: 'running',
+          output: 'output data',
+          error: '',
+          startTime: new Date(),
+          promptHistory: [{ prompt: 'test prompt', timestamp: new Date() }],
+          outputLineCount: 1000
+        });
+
+        await handleCallTool(mockGoslingManager, {
+          params: {
+            name: 'get_gosling_output',
+            arguments: {
+              process_id: 'test-uuid',
+              full_output: true
+            }
+          }
+        } as any);
+
+        expect(mockGoslingManager.getGoslingOutput).toHaveBeenCalledWith('test-uuid', 0, 100, true);
+      });
+
       it('should throw if process_id is not provided', async () => {
-        await expect(handleCallTool(mockGoslingManager, { 
-          params: { 
+        await expect(handleCallTool(mockGoslingManager, {
+          params: {
             name: 'get_gosling_output',
             arguments: {}
-          } 
+          }
         } as any)).rejects.toThrow(McpError);
       });
-      
+
       it('should throw if gosling is not found', async () => {
         mockGoslingManager.getGosling.mockReturnValue(undefined);
-        
-        await expect(handleCallTool(mockGoslingManager, { 
-          params: { 
+
+        await expect(handleCallTool(mockGoslingManager, {
+          params: {
             name: 'get_gosling_output',
             arguments: {
               process_id: 'non-existent-id'
             }
-          } 
+          }
+        } as any)).rejects.toThrow(McpError);
+      });
+    });
+
+    describe('send_prompt_to_gosling tool', () => {
+      it('should send a follow-up prompt to the specified gosling', async () => {
+        mockGoslingManager.getGosling.mockReturnValue({
+          id: 'test-uuid',
+          prompt: 'test prompt',
+          options: [],
+          process: {} as any,
+          status: 'running',
+          output: '',
+          error: '',
+          startTime: new Date(),
+          promptHistory: [{ prompt: 'test prompt', timestamp: new Date() }],
+          outputLineCount: 0
+        });
+
+        const result = await handleCallTool(mockGoslingManager, {
+          params: {
+            name: 'send_prompt_to_gosling',
+            arguments: {
+              process_id: 'test-uuid',
+              prompt: 'follow-up prompt'
+            }
+          }
+        } as any);
+
+        expect(mockGoslingManager.sendPromptToGosling).toHaveBeenCalledWith('test-uuid', 'follow-up prompt');
+        expect(result.content[0].text).toContain('Successfully sent follow-up prompt');
+        expect(result.content[0].text).toContain('follow-up prompt');
+      });
+
+      it('should throw if process_id is not provided', async () => {
+        await expect(handleCallTool(mockGoslingManager, {
+          params: {
+            name: 'send_prompt_to_gosling',
+            arguments: {
+              prompt: 'follow-up prompt'
+            }
+          }
+        } as any)).rejects.toThrow(McpError);
+      });
+
+      it('should throw if prompt is not provided', async () => {
+        await expect(handleCallTool(mockGoslingManager, {
+          params: {
+            name: 'send_prompt_to_gosling',
+            arguments: {
+              process_id: 'test-uuid'
+            }
+          }
+        } as any)).rejects.toThrow(McpError);
+      });
+
+      it('should throw if gosling is not found', async () => {
+        mockGoslingManager.getGosling.mockReturnValue(undefined);
+
+        await expect(handleCallTool(mockGoslingManager, {
+          params: {
+            name: 'send_prompt_to_gosling',
+            arguments: {
+              process_id: 'non-existent-id',
+              prompt: 'follow-up prompt'
+            }
+          }
+        } as any)).rejects.toThrow(McpError);
+      });
+
+      it('should throw if gosling is not running', async () => {
+        mockGoslingManager.getGosling.mockReturnValue({
+          id: 'test-uuid',
+          prompt: 'test prompt',
+          options: [],
+          process: {} as any,
+          status: 'completed',
+          output: '',
+          error: '',
+          startTime: new Date(),
+          endTime: new Date(),
+          promptHistory: [{ prompt: 'test prompt', timestamp: new Date() }],
+          outputLineCount: 0
+        });
+
+        await expect(handleCallTool(mockGoslingManager, {
+          params: {
+            name: 'send_prompt_to_gosling',
+            arguments: {
+              process_id: 'test-uuid',
+              prompt: 'follow-up prompt'
+            }
+          }
+        } as any)).rejects.toThrow(McpError);
+      });
+
+      it('should throw if sending prompt fails', async () => {
+        mockGoslingManager.getGosling.mockReturnValue({
+          id: 'test-uuid',
+          prompt: 'test prompt',
+          options: [],
+          process: {} as any,
+          status: 'running',
+          output: '',
+          error: '',
+          startTime: new Date(),
+          promptHistory: [{ prompt: 'test prompt', timestamp: new Date() }],
+          outputLineCount: 0
+        });
+
+        mockGoslingManager.sendPromptToGosling.mockReturnValue(false);
+
+        await expect(handleCallTool(mockGoslingManager, {
+          params: {
+            name: 'send_prompt_to_gosling',
+            arguments: {
+              process_id: 'test-uuid',
+              prompt: 'follow-up prompt'
+            }
+          }
         } as any)).rejects.toThrow(McpError);
       });
     });

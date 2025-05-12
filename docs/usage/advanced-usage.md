@@ -81,6 +81,51 @@ Use the run_goose tool to analyze this large dataset...
 Use the get_gosling_output tool to check if process XYZ has completed its analysis.
 ```
 
+## Interactive Conversations with Goslings
+
+Mother Goose now supports multi-turn conversations with goslings, allowing for interactive workflows:
+
+### Sending Follow-Up Prompts
+
+After starting a gosling, you can send additional prompts to it:
+
+```
+# Step 1: Start a gosling
+Use the run_goose tool with prompt="What are the fundamental principles of machine learning?"
+
+# Step 2: Wait for initial response
+Use the get_gosling_output tool with process_id="..." to see the initial response
+
+# Step 3: Send a follow-up question
+Use the send_prompt_to_gosling tool with process_id="..." and prompt="Can you elaborate on neural networks?"
+
+# Step 4: Get updated response
+Use the get_gosling_output tool again to see the combined conversation
+```
+
+### Session Persistence
+
+Gosling sessions are automatically managed with the following features:
+
+1. All goslings run in interactive mode with named sessions
+2. If a gosling has exited, it can be automatically resumed when sending a follow-up prompt
+3. Full prompt history is maintained and displayed in the output
+
+### Paginated Output Viewing
+
+For goslings generating large amounts of output, you can use pagination:
+
+```
+# View first 100 lines (default)
+Use the get_gosling_output tool with process_id="..."
+
+# View specific section (lines 200-300)
+Use the get_gosling_output tool with process_id="...", offset=200, limit=100
+
+# View entire output
+Use the get_gosling_output tool with process_id="...", full_output=true
+```
+
 ## Error Handling
 
 Sometimes goslings may encounter errors. You can:

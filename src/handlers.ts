@@ -104,6 +104,14 @@ export async function handleReadResource(
       throw new McpError(ErrorCode.InvalidRequest, `Gosling process ${processId} not found`);
     }
     
+    // Format the prompt history
+    const promptHistory = gosling.promptHistory
+      ? gosling.promptHistory.map(entry => ({
+          prompt: entry.prompt,
+          timestamp: formatDate(entry.timestamp)
+        }))
+      : [{ prompt: gosling.prompt, timestamp: formatDate(gosling.startTime) }];
+
     const goslingInfo = {
       id: gosling.id,
       prompt: gosling.prompt,
@@ -111,13 +119,16 @@ export async function handleReadResource(
       status: gosling.status,
       startTime: formatDate(gosling.startTime),
       endTime: gosling.endTime ? formatDate(gosling.endTime) : null,
-      duration: gosling.endTime 
+      duration: gosling.endTime
         ? formatDuration(gosling.startTime, gosling.endTime)
         : formatDuration(gosling.startTime) + " (running)",
+      promptHistory: promptHistory,
+      promptCount: promptHistory.length,
+      outputLineCount: gosling.outputLineCount || 0,
       outputLength: gosling.output.length,
       errorLength: gosling.error.length,
-      outputPreview: gosling.output.length > 0 
-        ? gosling.output.substring(0, 100) + (gosling.output.length > 100 ? '...' : '') 
+      outputPreview: gosling.output.length > 0
+        ? gosling.output.substring(0, 100) + (gosling.output.length > 100 ? '...' : '')
         : null
     };
     
@@ -215,16 +226,46 @@ export async function handleListTools(): Promise<any> {
       },
       {
         name: "get_gosling_output",
-        description: "Get the current output from a specific gosling process",
+        description: "Get the current output from a specific gosling process with pagination support",
         inputSchema: {
           type: "object",
           properties: {
             process_id: {
               type: "string",
               description: "ID of the gosling process"
+            },
+            offset: {
+              type: "number",
+              description: "Line number to start from (0-indexed)"
+            },
+            limit: {
+              type: "number",
+              description: "Maximum number of lines to return"
+            },
+            full_output: {
+              type: "boolean",
+              description: "Return complete output regardless of size"
             }
           },
           required: ["process_id"]
+        }
+      },
+      {
+        name: "send_prompt_to_gosling",
+        description: "Send a follow-up prompt to a running gosling process",
+        inputSchema: {
+          type: "object",
+          properties: {
+            process_id: {
+              type: "string",
+              description: "ID of the gosling process"
+            },
+            prompt: {
+              type: "string",
+              description: "The follow-up prompt to send to the gosling"
+            }
+          },
+          required: ["process_id", "prompt"]
         }
       },
       {
@@ -348,62 +389,143 @@ This child Goose process is working on your request in parallel.`
     
     case "get_gosling_output": {
       const processId = String(request.params.arguments?.process_id || "");
-      
+
       if (!processId) {
         throw new McpError(ErrorCode.InvalidParams, "Process ID is required");
       }
-      
+
       const gosling = goslingManager.getGosling(processId);
       if (!gosling) {
         throw new McpError(ErrorCode.InvalidRequest, `Gosling process ${processId} not found`);
       }
-      
-      const output = gosling.output || "No output yet.";
+
+      // Get pagination parameters with defaults
+      const offset = typeof request.params.arguments?.offset === 'number' ? request.params.arguments.offset : 0;
+      const limit = typeof request.params.arguments?.limit === 'number' ? request.params.arguments.limit : 100;
+      const fullOutput = Boolean(request.params.arguments?.full_output);
+
+      // Get paginated output
+      const outputResult = goslingManager.getGoslingOutput(processId, offset, limit, fullOutput);
+      if (!outputResult) {
+        throw new McpError(ErrorCode.InternalError, `Failed to get output for gosling ${processId}`);
+      }
+
+      const { text: output, metadata } = outputResult;
 
       // Create a header with gosling information
-      const header = `=== Gosling Process ${processId} ===
+      let header = `=== Gosling Process ${processId} ===
 Status: ${gosling.status}
 Started: ${formatDate(gosling.startTime)}
 ${gosling.endTime ? 'Ended: ' + formatDate(gosling.endTime) : 'Duration: ' + formatDuration(gosling.startTime) + ' (running)'}
-Prompt: "${gosling.prompt}"
-
 `;
-      
-      // If there's an error, append it to the output
+
+      // Add prompt and prompt history information
+      if (gosling.promptHistory && gosling.promptHistory.length > 0) {
+        header += `Prompts: ${gosling.promptHistory.length}\n`;
+        gosling.promptHistory.forEach((entry, index) => {
+          const promptText = entry.prompt.length > 50 ? entry.prompt.substring(0, 50) + "..." : entry.prompt;
+          header += `  ${index + 1}. [${formatDate(entry.timestamp)}] "${promptText}"\n`;
+        });
+      } else {
+        header += `Prompt: "${gosling.prompt}"\n`;
+      }
+
+      // Add pagination info
+      header += `\n=== Output (${metadata.startLine+1}-${metadata.endLine} of ${metadata.totalLines} lines) ===\n\n`;
+
+      // If there's an error, prepare to append it to the output
       let errorInfo = "";
       if (gosling.error) {
         errorInfo = "\n\n=== ERROR ===\n" + gosling.error;
       }
-      
+
+      // Add pagination help text
+      let paginationHelp = "";
+      if (metadata.hasMore) {
+        paginationHelp = `\n\n=== Pagination ===
+Showing lines ${metadata.startLine+1} to ${metadata.endLine} of ${metadata.totalLines} total lines.
+To see more, use:
+  - Next page: offset=${metadata.endLine} limit=${limit}
+  - Full output: full_output=true
+`;
+      }
+
       return {
         content: [{
           type: "text",
-          text: header + output + errorInfo
+          text: header + output + errorInfo + paginationHelp
         }]
       };
     }
     
-    case "release_gosling": {
+    case "send_prompt_to_gosling": {
       const processId = String(request.params.arguments?.process_id || "");
-      
+      const prompt = String(request.params.arguments?.prompt || "");
+
       if (!processId) {
         throw new McpError(ErrorCode.InvalidParams, "Process ID is required");
       }
-      
+
+      if (!prompt) {
+        throw new McpError(ErrorCode.InvalidParams, "Prompt is required");
+      }
+
       const gosling = goslingManager.getGosling(processId);
       if (!gosling) {
         throw new McpError(ErrorCode.InvalidRequest, `Gosling process ${processId} not found`);
       }
-      
+
+      // No need to check running status - our enhanced method will try to resume if not running
+
+      // Send the follow-up prompt (now async)
+      const success = await goslingManager.sendPromptToGosling(processId, prompt);
+      if (!success) {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Failed to send prompt to gosling ${processId}. Process could not be resumed or is not accepting input.`
+        );
+      }
+
+      // Count of prompts including the initial one
+      const promptCount = gosling.promptHistory ? gosling.promptHistory.length : 1;
+
+      return {
+        content: [{
+          type: "text",
+          text: `Successfully sent follow-up prompt to gosling ${processId}
+
+Prompt #${promptCount}: "${prompt.length > 50 ? prompt.substring(0, 50) + '...' : prompt}"
+
+The gosling is processing your follow-up prompt. You can check its progress using:
+- get_gosling_output tool with process_id="${processId}"
+- Resource URI: goslings://${processId}/output
+
+This allows for interactive, multi-turn conversations with your gosling process.`
+        }]
+      };
+    }
+
+    case "release_gosling": {
+      const processId = String(request.params.arguments?.process_id || "");
+
+      if (!processId) {
+        throw new McpError(ErrorCode.InvalidParams, "Process ID is required");
+      }
+
+      const gosling = goslingManager.getGosling(processId);
+      if (!gosling) {
+        throw new McpError(ErrorCode.InvalidRequest, `Gosling process ${processId} not found`);
+      }
+
       // Get status before termination
       const wasRunning = gosling.status === "running";
       const runtime = formatDuration(gosling.startTime, new Date());
-      
+
       const success = goslingManager.terminateGosling(processId);
       if (!success) {
         throw new McpError(ErrorCode.InvalidRequest, `Failed to release gosling process ${processId}`);
       }
-      
+
       return {
         content: [{
           type: "text",
