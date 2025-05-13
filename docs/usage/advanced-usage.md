@@ -69,10 +69,10 @@ flowchart TD
     L --> M[Synthesize Solution]
     M --> N[Present to Human]
     
-    style B fill:#f9d5e5,stroke:#333,stroke-width:2px
-    style G fill:#eeeeee,stroke:#333,stroke-width:2px
-    style I fill:#d5e8f9,stroke:#333,stroke-width:2px
-    style M fill:#e5f9d5,stroke:#333,stroke-width:2px
+    style B fill:#f9d5e5,stroke:#333,stroke-width:2px,color:#000
+    style G fill:#eeeeee,stroke:#333,stroke-width:2px,color:#000
+    style I fill:#d5e8f9,stroke:#333,stroke-width:2px,color:#000
+    style M fill:#e5f9d5,stroke:#333,stroke-width:2px,color:#000
 ```
 
 This orchestration flow demonstrates how the executive agent manages the entire process from initial problem analysis through to solution synthesis, coordinating specialized agent activities throughout.
@@ -91,29 +91,29 @@ The following diagram illustrates how knowledge is organized and flows between d
 
 ```mermaid
 graph TD
-    subgraph default[Default Domain]
+    subgraph "Default Domain"
         A[Problem Statement] -- defines --> B[Core Requirements]
         B -- clarifies --> C[System Constraints]
         A -- includes --> D[Expected Outcomes]
     end
     
-    subgraph req[Requirements Domain]
+    subgraph "Requirements Domain"
         E[Formal Requirement 1] -- depends_on --> F[Formal Requirement 2]
         F -- supports --> G[Formal Requirement 3]
         E -- prioritizes --> G
     end
     
-    subgraph arch[Architecture Domain]
+    subgraph "Architecture Domain"
         H[Component Design 1] -- interfaces_with --> I[Component Design 2]
         I -- depends_on --> J[Component Design 3]
     end
     
-    subgraph impl[Implementation Domain]
+    subgraph "Implementation Domain"
         K[Code Module 1] -- imports --> L[Code Module 2]
         L -- calls --> M[Code Module 3]
     end
     
-    subgraph test[Testing Domain]
+    subgraph "Testing Domain"
         N[Test Case 1] -- verifies --> O[Test Case 2]
         O -- validates --> P[Test Case 3]
     end
@@ -124,11 +124,10 @@ graph TD
     E -- validates_through --> N
     K -- verified_by --> N
     
-    classDef domain fill:#eeeeee,stroke:#999,stroke-width:1px
-    classDef memory fill:#f9f9f9,stroke:#333,stroke-width:1px
+    classDef domain fill:#eeeeee,stroke:#999,stroke-width:1px,color:#000
+    classDef memory fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#000
     classDef connection stroke-dasharray: 5 5
     
-    class default,req,arch,impl,test domain
     class A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P memory
 ```
 
