@@ -32,6 +32,12 @@ export async function handleListResources(
         name: "Executive Agent Framework",
         description: "Prompt template for orchestrating multi-agent workflows with Mother Goose and Memory Graph"
       },
+      {
+        uri: "prompts://collaboration-agent",
+        mimeType: "text/markdown",
+        name: "Collaboration Agent Framework",
+        description: "Prompt template for collaborative multi-agent workflows with time management and memory domains"
+      },
       ...goslings.map(gosling => ({
         uri: `goslings://${gosling.id}`,
         mimeType: "application/json",
